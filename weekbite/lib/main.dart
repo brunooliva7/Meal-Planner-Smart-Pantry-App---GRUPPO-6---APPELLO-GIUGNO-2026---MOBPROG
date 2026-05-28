@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'screens/dispensa.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -76,7 +77,8 @@ class _BaseLayoutState extends State<BaseLayout> {
     Center(child: Text("Ricette", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
-    Center(child: Text("Dispensa", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
+    const DispensaScreen(),
+    //Center(child: Text("Dispensa", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Utente", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
   ];
 
