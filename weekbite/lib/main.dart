@@ -89,31 +89,58 @@ class _BaseLayoutState extends State<BaseLayout> {
     });
   }
 
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(appTitle),
       ),
+      
+      // extendBody permette al contenuto di scorrere DIETRO la bottom bar fluttuante
+      extendBody: true, 
+      
       body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        elevation: 8,
-        showSelectedLabels: true,
-        showUnselectedLabels: false,
-        selectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: navBarTextSize),
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home_rounded), label: 'Ricette'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: 'Plan'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline_rounded), activeIcon: Icon(Icons.add_circle, size: 32), label: 'Aggiungi'),
-          BottomNavigationBarItem(icon: Icon(Icons.kitchen_outlined), activeIcon: Icon(Icons.kitchen), label: 'Dispensa'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), activeIcon: Icon(Icons.account_circle), label: 'Utente'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: primaryGreen,
-        unselectedItemColor: unselectedIconColor,
-        onTap: _onItemTapped,
+      
+      // BOTTOM BAR SUPER-MINIMALE
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.only(left: 36, right: 36, bottom: 12), 
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), 
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(40),
+            boxShadow: const [
+              BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5)),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildNavItem(Icons.home_filled, 0),
+              _buildNavItem(Icons.calendar_month, 1),
+              _buildNavItem(Icons.add_box_outlined, 2, size: 28),
+              _buildNavItem(Icons.kitchen, 3),
+              _buildNavItem(Icons.person_outline, 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==============================================================
+  // WIDGET DI SUPPORTO
+  // ==============================================================
+
+  Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
+    bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      behavior: HitTestBehavior.opaque, 
+      child: Icon(
+        icon,
+        size: size,
+        // COLORE AGGIORNATO (Verde primario o grigio disattivo)
+        color: isSelected ? primaryGreen : unselectedIconColor,
       ),
     );
   }
