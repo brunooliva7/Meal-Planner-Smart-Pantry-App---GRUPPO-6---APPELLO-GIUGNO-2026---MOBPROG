@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/dispensa.dart';
-import 'screens/main_screen.dart';
+import 'screens/ricette.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -75,7 +75,7 @@ class _BaseLayoutState extends State<BaseLayout> {
   // 📄 LE TUE SCHERMATE (QUI SOSTITUIRAI CON I TUOI FILE)
   // ==========================================================
   static final List<Widget> _pages = <Widget>[
-    Center(child: Text("Ricette", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
+    const RicetteScreen(),
     Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     const DispensaScreen(),
@@ -104,7 +104,7 @@ class _BaseLayoutState extends State<BaseLayout> {
         showUnselectedLabels: false,
         selectedLabelStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: navBarTextSize),
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Ricette'),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home_rounded), label: 'Ricette'),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month_outlined), activeIcon: Icon(Icons.calendar_month), label: 'Plan'),
           BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline_rounded), activeIcon: Icon(Icons.add_circle, size: 32), label: 'Aggiungi'),
           BottomNavigationBarItem(icon: Icon(Icons.kitchen_outlined), activeIcon: Icon(Icons.kitchen), label: 'Dispensa'),
