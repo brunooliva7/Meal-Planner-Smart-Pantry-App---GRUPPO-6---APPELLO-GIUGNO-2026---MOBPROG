@@ -81,13 +81,14 @@ class _BaseLayoutState extends State<BaseLayout> {
   // 🔴 VARIABILE PER CONTROLLARE SE L'UTENTE È LOGGATO
   bool isUserLogged = false;
 
+    // 🟢 ORDINE DELLE PAGINE CORRETTO (5 Pagine esatte, da indice 0 a indice 4)
     List<Widget> _getPages() {
       return [
-        MainScreen(isLogged: isUserLogged), // Passa lo stato di login reale!
-        Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
-        Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
-        const DispensaScreen(),
-        const UserProfileScreen(),
+        MainScreen(isLogged: isUserLogged), // 0: Home / MainScreen
+        const MealPlanScreen(), // 1: Visualizza Planner
+        Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))), // 2: Aggiungi
+        const DispensaScreen(), // 3: Dispensa
+        const UserProfileScreen(), // 4: Profilo Utente
       ];
     }
 

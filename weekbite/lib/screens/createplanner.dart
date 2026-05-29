@@ -151,7 +151,12 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => customNameController.dispose()); // Chiude in modo sicuro dopo la fine del ciclo del dialogo
+    ).then((_) {
+      // 🟢 RITARDO L'ELIMINAZIONE DEL CONTROLLER PER EVITARE L'ERRORE _dependents.isEmpty
+      Future.delayed(const Duration(milliseconds: 200), () {
+        customNameController.dispose();
+      });
+    }); 
   }
 
   void _removeMealSlot(String mealType) {
@@ -255,7 +260,12 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => piattoController.dispose()); // Il dispose avviene in modo protetto solo alla fine di tutta l'animazione
+    ).then((_) {
+      // 🟢 RITARDO L'ELIMINAZIONE DEL CONTROLLER PER EVITARE L'ERRORE _dependents.isEmpty
+      Future.delayed(const Duration(milliseconds: 200), () {
+        piattoController.dispose();
+      });
+    }); 
   }
 
   void _suggestRecipeFromApi(String mealType) {
@@ -396,7 +406,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          // Bloccato l'overflow orizzontale su smartphone stretti
                                           Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 12, color: kTextDark), overflow: TextOverflow.ellipsis)),
                                           const SizedBox(width: 6),
                                           GestureDetector(
