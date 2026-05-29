@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:weekbite/screens/recipe_model.dart';
+import 'package:weekbite/screens/recipe_model.dart'; // Assicurati che il percorso sia corretto per il tuo progetto
 
 class DatabaseHelper {
   // Pattern Singleton: garantisce che esista una sola istanza del database in tutta l'app
@@ -22,9 +22,10 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // 🟢 BUMP ALLA VERSIONE 2 (FONDAMENTALE)
       onCreate: _createDB,
-      onConfigure: _onConfigure, // Necessario per far funzionare i FOREIGN KEYS (ON DELETE CASCADE)
+      onUpgrade: _onUpgrade, // 🟢 AGGIUNTO IL METODO DI AGGIORNAMENTO
+      onConfigure: _onConfigure, 
     );
   }
 
@@ -34,11 +35,9 @@ class DatabaseHelper {
   }
 
   // ==========================================================
-  // 📐 CREAZIONE DELLE TABELLE UNIFICATE
+  // 📐 CREAZIONE DELLE TABELLE DA ZERO (Per chi installa l'app ora)
   // ==========================================================
   Future _createDB(Database db, int version) async {
-    
-    // 1. TABELLA CACHE RICETTE VIRALI
     await db.execute('''
       CREATE TABLE viral_recipes_cache (
         id INTEGER PRIMARY KEY,
@@ -49,7 +48,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. TABELLA PREFERITI
     await db.execute('''
       CREATE TABLE favorites (
         id INTEGER PRIMARY KEY,
@@ -58,7 +56,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. TABELLA RICETTE SALVATE + NOTE
     await db.execute('''
       CREATE TABLE saved_recipes (
         id INTEGER PRIMARY KEY,
@@ -69,7 +66,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 4. TABELLA PLANNERS (Nome obbligatorio e UNICO)
     await db.execute('''
       CREATE TABLE planners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +73,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 5. TABELLA MEALS (Singoli pasti collegati al planner)
     await db.execute('''
       CREATE TABLE meals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,16 +85,36 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-    CREATE TABLE users (
-      uid TEXT PRIMARY KEY,
-      email TEXT NOT NULL,
-      name TEXT,
-      photo_url TEXT,
-      preferences_json TEXT,
-      registration_date TEXT,
-      password TEXT
-    )
+      CREATE TABLE users (
+        uid TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        name TEXT,
+        photo_url TEXT,
+        preferences_json TEXT,
+        registration_date TEXT,
+        password TEXT
+      )
     ''');
+  }
+
+  // ==========================================================
+  // ⬆️ AGGIORNAMENTO DEL DATABASE (Per te che lo avevi già installato)
+  // ==========================================================
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Aggiunge la tabella users se si passa dalla versione 1 alla 2
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+          uid TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          name TEXT,
+          photo_url TEXT,
+          preferences_json TEXT,
+          registration_date TEXT,
+          password TEXT
+        )
+      ''');
+    }
   }
 
   // ==========================================================
@@ -224,10 +239,8 @@ class DatabaseHelper {
     final db = await instance.database;
 
     await db.transaction((txn) async {
-      // 1. Inserisci il planner
       int plannerId = await txn.insert('planners', {'name': name});
 
-      // 2. Cicla sui giorni e sui pasti per salvare tutto
       for (var day in associatedRecipes.keys) {
         for (var mealType in associatedRecipes[day]!.keys) {
           List<RecipeModel> recipes = associatedRecipes[day]![mealType]!;
@@ -323,29 +336,32 @@ class DatabaseHelper {
     return res.map((row) => row['name'] as String).toList();
   }
 
-// Elimina un planner (cancellerà in automatico anche i pasti grazie al CASCADE)
+  // Elimina un planner
   Future<int> deletePlanner(int id) async {
     final db = await instance.database;
     return await db.delete('planners', where: 'id = ?', whereArgs: [id]);
   }
 
+  // ==========================================================
+  // 👤 OPERAZIONI UTENTE
+  // ==========================================================
   Future<void> saveOrUpdateUser(Map<String, dynamic> userData) async {
-  final db = await instance.database;
-  
-  await db.insert(
-    'users',
-    {
-      'uid': userData['uid'],
-      'email': userData['email'],
-      'name': userData['name'],
-      'photo_url': userData['photo_url'],
-      'preferences_json': userData['preferences_json'] ?? '{}',
-      'registration_date': DateTime.now().toIso8601String(),
-    },
-    conflictAlgorithm: ConflictAlgorithm.replace, // Se l'utente esiste già, sovrascrive i dati
-  );
-}
-
+    final db = await instance.database;
+    
+    await db.insert(
+      'users',
+      {
+        'uid': userData['uid'],
+        'email': userData['email'],
+        'name': userData['name'],
+        'photo_url': userData['photo_url'],
+        'preferences_json': userData['preferences_json'] ?? '{}',
+        'registration_date': DateTime.now().toIso8601String(),
+        'password': userData['password'], // Aggiunto per salvare la password
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace, 
+    );
+  }
 
   // ==========================================================
   // CHIUSURA DATABASE
