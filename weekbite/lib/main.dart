@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/dispensa.dart';
 import 'screens/ricette.dart';
+import 'screens/main_screen.dart';
+import 'screens/mealplanner.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -9,7 +11,7 @@ import 'screens/ricette.dart';
 
 // COLORI
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
-const Color backgroundColor = Colors.white;
+const Color backgroundColor = Color.fromARGB(255, 241, 241, 241);
 const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
 
 // TESTI E TITOLI
@@ -21,6 +23,8 @@ const double navBarTextSize = 12.0;
 // 🚀 AVVIO APP
 // ==========================================================
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
   runApp(const MyApp());
 }
 
@@ -56,7 +60,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: const BaseLayout(),
     );
   }
 }
@@ -75,12 +79,12 @@ class _BaseLayoutState extends State<BaseLayout> {
   // 📄 LE TUE SCHERMATE (QUI SOSTITUIRAI CON I TUOI FILE)
   // ==========================================================
   static final List<Widget> _pages = <Widget>[
-    const RicetteScreen(),
+    const MainScreen(),
     Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     const DispensaScreen(),
     //Center(child: Text("Dispensa", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
-    Center(child: Text("Utente", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
+    //Center(child: Text("Utente", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
   ];
 
   void _onItemTapped(int index) {

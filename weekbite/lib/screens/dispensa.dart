@@ -1,62 +1,192 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:weekbite/main.dart';
 
-class DispensaScreen extends StatelessWidget {
+class Ingredienti{
+  final String nome; //nome del prodotto
+  final double quantita; //quantità nominale del prodotto
+  final String unitaMisura; //unità di misura del prodotto
+  int pezzi; //pezzi del prodotto
+
+  Ingredienti({
+    required this.nome, 
+    required this.quantita,
+    required this.unitaMisura,
+    required this.pezzi,
+  });
+}
+
+const List<Ingredienti> ingredienti = [];
+
+class DispensaScreen extends StatefulWidget{
   const DispensaScreen({super.key});
 
-  final Color primaryGreen = const Color.fromARGB(255, 75, 187, 120); 
+  @override
+  State<DispensaScreen> createState() => _DispensaScreenState();
+}
 
-  @override
-  @override
-  Widget build(BuildContext context) {
+class _DispensaScreenState extends State<DispensaScreen>{
+  @override 
+  Widget build(BuildContext context){
     return SafeArea(
       bottom: false,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // Allinea il testo a sinistra
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 20, top: 16, right: 20, bottom: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
-              "La mia Dispensa", // Inserisci qui il tuo testo
-              style: GoogleFonts.montserrat(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+              "La mia Dispensa",
+              style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.bold, color:Colors.black,),
             ),
           ),
-          _buildSearchBar(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(30),
-        onTap: () {
-          // Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen()));
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.grey[100], 
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: (){
+                      //funzione di ricerca
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 245, 245, 245),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: const[
+                          BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search, color:primaryGreen, size:20),
+                          const SizedBox(width: 12), 
+                          Text(
+                            "Cerca ingredienti...",
+                            style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 15)
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 245, 245, 245),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: const[
+                      BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: (){
+                      //funzione di add lista spesa
+                    },
+                    icon: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
+                  ),
+                ),
+              ],
+            ), 
           ),
-          child: Row(
-            children: [
-              Icon(Icons.search, color: primaryGreen, size: 20),
-              const SizedBox(width: 12),
-              Text('Cerca ingredienti nella tua dipensa...', 
+          SizedBox(width: 12),
+          Expanded(
+            child: ingredienti.isEmpty ? Center(
+              child:Text(
+                "Non hai niente nella dispensa!\nDovresti fare la spesa!",
                 style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 15)
               ),
-            ],
+            ) : ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: ingredienti.length, // Sostituisci con il nome della tua lista
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final ingrediente = ingredienti[index];
+                
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.07),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Icona
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: primaryGreen.withOpacity(0.1), 
+                          shape: BoxShape.circle
+                        ),
+                        child: Icon(Icons.kitchen, color: primaryGreen, size: 20),
+                      ),
+                      const SizedBox(width: 14),
+                      
+                      // Testi (Nome e Quantità nominale)
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ingrediente.nome,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1A1A2E),
+                              ),
+                            ),
+                            Text(
+                              '${ingrediente.quantita} ${ingrediente.unitaMisura}',
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      // Controller Pezzi (+ e -)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
+                            onPressed: () {
+                              // TODO: setState per diminuire ingrediente.pezzi
+                            },
+                          ),
+                          SizedBox(
+                            width: 24,
+                            child: Text(
+                              '${ingrediente.pezzi}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.add_circle_outline, color: primaryGreen),
+                            onPressed: () {
+                              // TODO: setState per aumentare ingrediente.pezzi
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ),
+        ],
+      )
     );
   }
 }
+
