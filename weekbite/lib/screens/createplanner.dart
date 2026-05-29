@@ -29,11 +29,32 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     "COLAZIONE": "🥞", "PRANZO": "🍝", "SPUNTINO": "🍏", "MERENDA": "🧃", "CENA": "🥩", "ALTRO": "🍲"
   };
 
+  // 💡 POOL DI SUGGERIMENTI ESPANSO: Varietà di piatti per simulare una vera chiamata API
   final Map<String, List<String>> _suggestionsPool = {
-    "colazione": ["Pancakes allo sciroppo", "Porridge d'avena", "Yogurt greco con muesli"],
-    "pranzo": ["Pasta aglio, olio e peperoncino", "Risotto ai funghi", "Gnocchi al pomodoro"],
-    "cena": ["Petto di pollo e verdure", "Filetto di orata al cartoccio", "Frittata al forno"],
-    "snack": ["Frutta fresca", "Barretta proteica", "Manciata di noci"]
+    "colazione": [
+      "Pancakes allo sciroppo d'acero", "Porridge d'avena con frutti di bosco", 
+      "Yogurt greco con muesli e miele", "Toast con avocado e uovo in camicia",
+      "Cornetto integrale e cappuccino", "Smoothie bowl alla banana e cacao",
+      "Omelette dolce di albumi e marmellata", "Waffle leggeri con fragole fresche"
+    ],
+    "pranzo": [
+      "Pasta aglio, olio e peperoncino", "Risotto cremoso ai funghi porcini", 
+      "Gnocchi di patate al pomodoro e basilico", "Insalata di quinoa con verdure grigliate",
+      "Spaghetti alla carbonara vegetariana", "Piadina salmone e philadelphia",
+      "Riso venere con gamberetti e zucchine", "Couscous di pollo ed erbette aromatiche"
+    ],
+    "cena": [
+      "Petto di pollo alla piastra con asparagi", "Filetto di orata al cartoccio con patate", 
+      "Frittata alta al forno con spinaci", "Salmone scottato al sesamo con broccoli",
+      "Zuppa tiepida di legumi e crostini", "Hamburger di tacchino in piatto con insalata",
+      "Vellutata di zucca e ceci croccanti", "Bocconcini di tofu saltati con verdure wok"
+    ],
+    "snack": [
+      "Frutta fresca di stagione", "Barretta proteica ai cereali", 
+      "Una manciata di mandorle e noci", "Gallette di riso con burro d'arachidi",
+      "Hummus di ceci con bastoncini di carota", "Yogurt magro alla vaniglia",
+      "Parmigiano Reggiano a cubetti", "Cioccolato fondente 85% (due quadratini)"
+    ]
   };
 
   @override
@@ -55,7 +76,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     super.dispose();
   }
 
-  // Mostra popup di errore personalizzato
   void _showErrorDialog(String title, String message) {
     showDialog(
       context: context,
@@ -146,7 +166,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   _dayMealTypes[_selectedDay]!.add(finalMealName);
                   _associatedRecipes[_selectedDay]![finalMealName] = [];
                 });
-                customNameController.dispose();
                 Navigator.pop(dialogContext);
               },
               child: Text("Aggiungi", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -154,7 +173,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => customNameController.dispose()); // 🛠️ Corretto: Il controller viene disattivato in sicurezza alla chiusura
   }
 
   void _removeMealSlot(String mealType) {
@@ -164,11 +183,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     });
   }
 
-  // ==========================================================
-  // 🍽️ BOTTOM SHEET PER AGGIUNGERE RICETTE (MANUALI O SALVATE)
-  // ==========================================================
+  // 🛠️ BOTTOM SHEET AGGIORNATO CON COSTRUTTORI ESPANSI (Niente più eccezioni di layout)
   void _showAddPiatoDialog(String mealType) async {
-    // 1. Recuperiamo prima le ricette salvate nel database
     final db = await DatabaseHelper.instance.database;
     final List<Map<String, dynamic>> savedRecipesDB = await db.query('saved_recipes');
 
@@ -181,24 +197,23 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) => Container(
-        height: MediaQuery.of(context).size.height * 0.75, // Occupa il 75% dello schermo
+        height: MediaQuery.of(context).size.height * 0.75, 
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
         padding: EdgeInsets.only(
           top: 24, left: 24, right: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24, // Gestisce l'altezza della tastiera
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
             const SizedBox(height: 20),
-            Text("Aggiungi a $mealType", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.bold, color: kTextDark)),
+            Text("Aggiungi a $mealType", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: kTextDark)),
             const SizedBox(height: 20),
             
-            // OPZIONE 1: Inserimento Manuale
             Row(
               children: [
                 Expanded(
@@ -213,7 +228,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)),
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16)),
                   onPressed: () {
                     String t = piattoController.text.trim();
                     if (t.isEmpty) return;
@@ -230,14 +245,14 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             ),
             
             const SizedBox(height: 24),
-            Text("Oppure scegli dalle tue Ricette Salvate:", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: kTextMuted)),
+            Text("Oppure scegli dalle tue Ricette Salvate:", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: kTextMuted)),
             const SizedBox(height: 12),
 
-            // OPZIONE 2: Scelta dal Database SQLite
+            // 🛠️ RISOLUZIONE DEL CRASH: ListView avvolta in Expanded per confinarne le dimensioni verticali
             Expanded(
               child: savedRecipesDB.isEmpty
                 ? Center(
-                    child: Text("Non hai ancora salvato nessuna ricetta.\nEsplora l'app per salvarne qualcuna!", textAlign: TextAlign.center, style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 14)),
+                    child: Text("Non hai ancora salvato nessuna ricetta.\nEsplora l'app per salvarne qualcuna!", textAlign: TextAlign.center, style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 13)),
                   )
                 : ListView.builder(
                     itemCount: savedRecipesDB.length,
@@ -252,12 +267,13 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              recipe['image'] != null && recipe['image'].toString().isNotEmpty 
-                                  ? recipe['image'] 
-                                  : 'https://via.placeholder.com/150',
-                              width: 50, height: 50, fit: BoxFit.cover,
-                            ),
+                            child: recipe['image'] != null && recipe['image'].toString().isNotEmpty 
+                                ? Image.network(
+                                    recipe['image'],
+                                    width: 46, height: 46, fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Container(width: 46, height: 46, color: Colors.grey[300], child: const Icon(Icons.restaurant, color: Colors.white)),
+                                  ) 
+                                : Container(width: 46, height: 46, color: Colors.grey[300], child: const Icon(Icons.restaurant, color: Colors.white)),
                           ),
                           title: Text(recipe['title'] ?? 'Senza Titolo', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: kTextDark)),
                           trailing: const Icon(Icons.add_circle, color: primaryGreen),
@@ -281,7 +297,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => piattoController.dispose()); // Rilascia le risorse in sicurezza
   }
 
   void _suggestRecipeFromApi(String mealType) {
@@ -295,19 +311,14 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     });
   }
 
-  // ==========================================================
-  // 💾 SALVATAGGIO DEL PLANNER E VALIDAZIONI
-  // ==========================================================
   Future<void> _savePlannerToDatabase() async {
     String name = _plannerNameController.text.trim();
     
-    // 1. Controllo validità: Nome inserito?
     if (name.isEmpty) {
       _showErrorDialog("Attenzione", "Devi inserire un nome per il tuo piano alimentare! (es. Dieta Estiva)");
       return;
     }
 
-    // 2. Controllo univocità: Esiste già nel database?
     List<String> existingNames = await DatabaseHelper.instance.getAllPlannerNames();
     bool isDuplicate = existingNames.any((n) => n.toLowerCase() == name.toLowerCase());
     
@@ -316,7 +327,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       return;
     }
 
-    // 3. Esecuzione salvataggio
     try {
       await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes);
 
@@ -338,8 +348,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
               onPressed: () {
-                Navigator.pop(dialogContext); // Chiudi il popup
-                Navigator.pop(context); // Torna alla schermata precedente (es. la lista dei planner)
+                Navigator.pop(dialogContext); 
+                Navigator.pop(context); 
               },
               child: const Text("Ottimo", style: TextStyle(color: Colors.white)),
             )
