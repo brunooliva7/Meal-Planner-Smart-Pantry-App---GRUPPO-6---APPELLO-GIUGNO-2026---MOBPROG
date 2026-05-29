@@ -16,8 +16,6 @@ class Ingredienti{
   });
 }
 
-const List<Ingredienti> ingredienti = [];
-
 class DispensaScreen extends StatefulWidget{
   const DispensaScreen({super.key});
 
@@ -26,6 +24,48 @@ class DispensaScreen extends StatefulWidget{
 }
 
 class _DispensaScreenState extends State<DispensaScreen>{
+  List<Ingredienti> ingredienti = [];
+
+  bool _showForm = false;
+
+  final TextEditingController _nomeController = TextEditingController();
+  final TextEditingController _quantitaController = TextEditingController();
+  final TextEditingController _unitaController = TextEditingController();
+  final TextEditingController _pezziController = TextEditingController();
+
+  void _salvaIngrediente() {
+    // Se non ha inserito il nome, non facciamo nulla
+    if (_nomeController.text.trim().isEmpty) return;
+
+    setState(() {
+      ingredienti.add(
+        Ingredienti(
+          nome: _nomeController.text.trim(),
+          quantita: double.tryParse(_quantitaController.text) ?? 1.0,
+          unitaMisura: _unitaController.text.trim().isEmpty ? 'pz' : _unitaController.text.trim(),
+          pezzi: int.parse(_pezziController.text),
+        )
+      );
+      
+      _showForm = false;
+      _nomeController.clear();
+      _quantitaController.clear();
+      _unitaController.clear();
+      _pezziController.clear();
+    });
+  }
+
+  // È buona norma pulire i controller quando si distrugge la pagina
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _quantitaController.dispose();
+    _unitaController.dispose();
+    super.dispose();
+  }
+
+
+
   @override 
   Widget build(BuildContext context){
     return SafeArea(
@@ -83,7 +123,9 @@ class _DispensaScreenState extends State<DispensaScreen>{
                   ),
                   child: IconButton(
                     onPressed: (){
-                      //funzione di add lista spesa
+                      setState(() {
+                        _showForm = true; 
+                      });
                     },
                     icon: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
                   ),
@@ -184,6 +226,90 @@ class _DispensaScreenState extends State<DispensaScreen>{
               },
             ),
           ),
+        if (_showForm)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black54, // Sfondo scuro semi-trasparente
+                  child: Center(
+                    child: SingleChildScrollView( // Aiuta se la tastiera copre lo schermo
+                      child: Card(
+                        margin: const EdgeInsets.all(24),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Nuovo Ingrediente",
+                                style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _nomeController,
+                                decoration: InputDecoration(
+                                  labelText: "Nome",
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _quantitaController,
+                                      keyboardType: TextInputType.number,
+                                      decoration: InputDecoration(
+                                        labelText: "Quantità",
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _unitaController,
+                                      decoration: InputDecoration(
+                                        labelText: "Unità (es. g, ml)",
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      // Chiude il form senza salvare
+                                      setState(() {
+                                        _showForm = false;
+                                      });
+                                    },
+                                    child: const Text("Annulla", style: TextStyle(color: Colors.grey)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryGreen,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    onPressed: _salvaIngrediente, // Chiama la funzione creata in alto
+                                    child: const Text("Salva", style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
         ],
       )
     );
