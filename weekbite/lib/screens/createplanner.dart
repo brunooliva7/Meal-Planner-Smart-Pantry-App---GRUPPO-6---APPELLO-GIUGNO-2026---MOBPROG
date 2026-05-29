@@ -118,7 +118,13 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text("Annulla", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w600))),
+            TextButton(
+              onPressed: () {
+                customNameController.dispose();
+                Navigator.pop(dialogContext);
+              }, 
+              child: Text("Annulla", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w600))
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
               onPressed: () {
@@ -135,6 +141,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   _dayMealTypes[_selectedDay]!.add(finalMealName);
                   _associatedRecipes[_selectedDay]![finalMealName] = [];
                 });
+                customNameController.dispose();
                 Navigator.pop(dialogContext);
               },
               child: Text("Aggiungi", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -142,7 +149,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => customNameController.dispose());
+    );
   }
 
   void _removeMealSlot(String mealType) {
@@ -155,7 +162,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   void _showAddPiatoDialog(String mealType) async {
     List<Map<String, dynamic>> savedRecipesDB = [];
     try {
-      savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(); // O query diretta su saved_recipes
+      savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(); 
     } catch (_) {}
 
     if (!mounted) return;
@@ -194,12 +201,14 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   onPressed: () {
                     String t = piattoController.text.trim();
                     if (t.isEmpty) return;
-                    Navigator.pop(bottomSheetContext); 
+                    
                     setState(() {
                       _associatedRecipes[_selectedDay]![mealType]!.add(
                         RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: t, image: "")
                       );
                     });
+                    piattoController.dispose(); // Sincronizzato correttamente prima del pop nativo
+                    Navigator.pop(bottomSheetContext); 
                   },
                   child: const Icon(Icons.add, color: Colors.white),
                 ),
@@ -224,12 +233,13 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                           title: Text(recipe['title'] ?? 'Senza Titolo', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: kTextDark)),
                           trailing: const Icon(Icons.add_circle, color: primaryGreen),
                           onTap: () {
-                            Navigator.pop(bottomSheetContext);
                             setState(() {
                               _associatedRecipes[_selectedDay]![mealType]!.add(
                                 RecipeModel(id: recipe['id'], title: recipe['title'], image: recipe['image'] ?? "")
                               );
                             });
+                            piattoController.dispose();
+                            Navigator.pop(bottomSheetContext);
                           },
                         ),
                       );
@@ -239,7 +249,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => piattoController.dispose());
+    );
   }
 
   void _suggestRecipeFromApi(String mealType) {
@@ -270,7 +280,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes);
 
       if (!mounted) return;
-      Navigator.pop(context, true); // Forziamo il riaggiornamento tornando indietro
+      Navigator.pop(context, true); 
     } catch (e) {
       _showErrorDialog("Errore", "Impossibile salvare il planner: $e");
     }
@@ -368,6 +378,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                         Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (listRecipes.isNotEmpty) ...[
                                 Wrap(

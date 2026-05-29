@@ -63,7 +63,13 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
         title: Text("Modifica piatto", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold)),
         content: TextField(controller: editPiattoController, autofocus: true),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text("Annulla")),
+          TextButton(
+            onPressed: () {
+              editPiattoController.dispose();
+              Navigator.pop(dialogContext);
+            }, 
+            child: const Text("Annulla")
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
             onPressed: () {
@@ -78,13 +84,14 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                   );
                 });
               }
+              editPiattoController.dispose();
               Navigator.pop(dialogContext);
             },
             child: const Text("Aggiorna", style: TextStyle(color: Colors.white)),
           )
         ],
       ),
-    ).then((_) => editPiattoController.dispose());
+    );
   }
 
   void _showAddPiattoDialog(String mealType) async {
@@ -114,6 +121,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                 setState(() {
                   _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: piattoController.text.trim(), image: ""));
                 });
+                piattoController.dispose();
                 Navigator.pop(bottomSheetContext);
               },
               child: const Text("Aggiungi a mano libera", style: TextStyle(color: Colors.white)),
@@ -130,6 +138,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                       setState(() {
                         _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: rec['id'], title: rec['title'], image: rec['image'] ?? ""));
                       });
+                      piattoController.dispose();
                       Navigator.pop(bottomSheetContext);
                     },
                   );
@@ -139,7 +148,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => piattoController.dispose());
+    );
   }
 
   Future<void> _updatePlannerInDatabase() async {
@@ -149,7 +158,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
     try {
       await DatabaseHelper.instance.updatePlanner(widget.plannerId, name, _associatedRecipes);
       if (!mounted) return;
-      Navigator.pop(context, true); // Ritorna TRUE per notificare il refresh alla schermata principale
+      Navigator.pop(context, true); 
     } catch (_) {}
   }
 
@@ -213,27 +222,30 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                         Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Wrap(
-                                spacing: 8, runSpacing: 8,
-                                children: listRecipes.map((recipe) {
-                                  return InkWell(
-                                    onTap: () => _showEditPiattoDialog(mealType, recipe),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12)),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, color: kTextDark), overflow: TextOverflow.ellipsis)),
-                                          const SizedBox(width: 8),
-                                          GestureDetector(onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)), child: const Icon(Icons.close, size: 14))
-                                        ],
+                              if (listRecipes.isNotEmpty) ...[
+                                Wrap(
+                                  spacing: 8, runSpacing: 8,
+                                  children: listRecipes.map((recipe) {
+                                    return InkWell(
+                                      onTap: () => _showEditPiattoDialog(mealType, recipe),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12)),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, color: kTextDark), overflow: TextOverflow.ellipsis)),
+                                            const SizedBox(width: 8),
+                                            GestureDetector(onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)), child: const Icon(Icons.close, size: 14))
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                              const SizedBox(height: 12),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
                               InkWell(
                                 onTap: () => _showAddPiattoDialog(mealType),
                                 child: Container(

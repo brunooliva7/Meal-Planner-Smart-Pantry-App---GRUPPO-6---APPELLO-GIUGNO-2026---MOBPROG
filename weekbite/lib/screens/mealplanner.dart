@@ -99,7 +99,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                           onPressed: () async {
                             if (activePlannerId == 0) return;
 
-                            // 🌟 INTERCETTAZIONE REFRESH: Riceve lo stato di pop asincrono della pagina Edit
                             final bool? rinfrescaDati = await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
@@ -113,7 +112,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                             );
 
                             if (rinfrescaDati == true) {
-                              setState(() {}); // Riesegue istantaneamente il FutureBuilder dal DB
+                              setState(() {}); 
                             }
                           },
                         ),
@@ -203,8 +202,6 @@ class _MealCard extends StatelessWidget {
                       children: slot.recipes.map((recipe) {
                         return InkWell(
                           onTap: () {
-                            // 🌟 DISCRIMINAZIONE ID RICHIESTA: Se l'ID è negativo (< 0) significa che è testo libero -> chiama API online
-                            // Se l'ID è positivo, la ricetta appartiene alle strutture salvate nel database localmente.
                             Navigator.push(
                               context,
                               MaterialPageRoute(
