@@ -23,11 +23,10 @@ class DispensaScreen extends StatefulWidget{
   State<DispensaScreen> createState() => _DispensaScreenState();
 }
 
+List<Ingredienti> dispensa = [];
+List<Ingredienti> lista = [];
+
 class _DispensaScreenState extends State<DispensaScreen>{
-  List<Ingredienti> dispensa = [
-    Ingredienti(nome: "Totti", quantita: 500, unitaMisura: "g", pezzi: 1),
-    Ingredienti(nome: "Passata di pomodoro", quantita: 1, unitaMisura: "bottiglia", pezzi: 3),
-  ];
 
   @override 
   Widget build(BuildContext context){
@@ -85,14 +84,15 @@ class _DispensaScreenState extends State<DispensaScreen>{
                     ],
                   ),
                   child: IconButton(
-                    onPressed: (){
-                      Navigator.push(
+                    onPressed: () async { 
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          // Sostituisci "FormIngredientiScreen" con il nome reale della tua classe
                           builder: (context) => const ListaIngredientiScreen(), 
                         ),
                       );
+                      
+                      setState(() {}); 
                     },
                     icon: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
                   ),
@@ -143,7 +143,7 @@ class _IngredientiCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 2),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -158,18 +158,21 @@ class _IngredientiCard extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    ingrediente.nome,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: primaryGreen,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                  ListTile(
+                    title: Text(
+                      ingrediente.nome, 
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)
+                    ),
+                    subtitle: Text(
+                      "ciao",
+                      style: GoogleFonts.montserrat(fontSize: 12, color: Colors.black54),
                     ),
                   ),
+                  SizedBox(width: 20,)
                 ],
               ),
             ),
@@ -188,7 +191,7 @@ class ListaIngredientiScreen extends StatefulWidget{
 }
 
 class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{ 
-  List<Ingredienti> lista = [];
+  //List<Ingredienti> lista = [];
   @override
   Widget build(BuildContext context){
     return Scaffold(
@@ -206,26 +209,93 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding( 
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Text(
                 "Ingredienti nella lista spesa: ${lista.length}",
                style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color:Colors.grey),
               ),
             ),
-            SizedBox(width: 12),          
+            SizedBox(width: 20), 
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: lista.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 20),
+                itemBuilder: (context, i) {
+                  final listaspesa = lista[i];
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05), 
+                          blurRadius: 4, 
+                          offset: const Offset(0, 2)
+                        )
+                      ],
+                    ),
+                    child: CheckboxListTile(
+                      value: false, 
+                      title: Text(
+                        listaspesa.nome, 
+                        style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
+                      ),
+                      
+                      subtitle: Text(
+                        "${listaspesa.quantita} ${listaspesa.unitaMisura} • ${listaspesa.pezzi} pz", 
+                        style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13)
+                      ),
+                      
+                      activeColor: primaryGreen, 
+
+                      checkboxShape: const CircleBorder(), 
+                      
+                      controlAffinity: ListTileControlAffinity.leading, 
+
+                      secondary: IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Color.fromARGB(255, 244, 67, 54)),
+                        onPressed: () {
+                          setState(() {
+                            lista.removeAt(i);
+                          });
+                        },
+                      ),
+                      
+                      onChanged: (bool? completato) {
+                        if (completato == true) {
+                          setState(() {
+                            dispensa.add(listaspesa); 
+                            lista.removeAt(i);
+                          });
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+            )  
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: (){
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          // Sostituisci "FormIngredientiScreen" con il nome reale della tua classe
-                          builder: (context) => const FormIngredientiScreen(), 
-                        ),
-                      );
-                    },
+        onPressed: () async { 
+          // 2. Mettiti in attesa (await) del risultato dal Form
+          final risultato = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const FormIngredientiScreen(), 
+            ),
+          );
+
+          // 3. Se torni indietro con un ingrediente (e non premendo Annulla)
+          if (risultato != null && risultato is Ingredienti) {
+            // 4. Salvalo nella lista e aggiorna lo schermo!
+            setState(() {
+              lista.add(risultato);
+            });
+          }
+        },
         child: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
         backgroundColor: Colors.white,
       ),
@@ -359,6 +429,9 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                           unitaMisura: _unitaSelezionata,
                           pezzi: int.tryParse(_pezziController.text) ?? 1,
                         );
+                        
+                        // AGGIUNGI QUESTA RIGA: Chiude il form e lancia l'ingrediente indietro
+                        Navigator.pop(context, nuovoIngrediente);
                       },
                       child: Text(
                         "Conferma",
