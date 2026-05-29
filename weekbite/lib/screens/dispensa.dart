@@ -24,48 +24,10 @@ class DispensaScreen extends StatefulWidget{
 }
 
 class _DispensaScreenState extends State<DispensaScreen>{
-  List<Ingredienti> ingredienti = [];
-
-  bool _showForm = false;
-
-  final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _quantitaController = TextEditingController();
-  final TextEditingController _unitaController = TextEditingController();
-  final TextEditingController _pezziController = TextEditingController();
-
-  void _salvaIngrediente() {
-    // Se non ha inserito il nome, non facciamo nulla
-    if (_nomeController.text.trim().isEmpty) return;
-
-    setState(() {
-      ingredienti.add(
-        Ingredienti(
-          nome: _nomeController.text.trim(),
-          quantita: double.tryParse(_quantitaController.text) ?? 1.0,
-          unitaMisura: _unitaController.text.trim().isEmpty ? 'pz' : _unitaController.text.trim(),
-          pezzi: int.parse(_pezziController.text),
-        )
-      );
-      
-      // Chiudiamo il form e puliamo i campi per la prossima volta
-      _showForm = false;
-      _nomeController.clear();
-      _quantitaController.clear();
-      _unitaController.clear();
-      _pezziController.clear();
-    });
-  }
-
-  // È buona norma pulire i controller quando si distrugge la pagina
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _quantitaController.dispose();
-    _unitaController.dispose();
-    super.dispose();
-  }
-
-
+  List<Ingredienti> dispensa = [
+    Ingredienti(nome: "Totti", quantita: 500, unitaMisura: "g", pezzi: 1),
+    Ingredienti(nome: "Passata di pomodoro", quantita: 1, unitaMisura: "bottiglia", pezzi: 3),
+  ];
 
   @override 
   Widget build(BuildContext context){
@@ -124,7 +86,13 @@ class _DispensaScreenState extends State<DispensaScreen>{
                   ),
                   child: IconButton(
                     onPressed: (){
-                      //funzione di add lista spesa
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          // Sostituisci "FormIngredientiScreen" con il nome reale della tua classe
+                          builder: (context) => const ListaIngredientiScreen(), 
+                        ),
+                      );
                     },
                     icon: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
                   ),
@@ -133,101 +101,281 @@ class _DispensaScreenState extends State<DispensaScreen>{
             ), 
           ),
           SizedBox(width: 12),
+          Padding( 
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Text(
+              "Ingredienti nella dispensa: ${dispensa.length}",
+              style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color:Colors.grey),
+            ),
+          ),
+          SizedBox(width: 12),
           Expanded(
-            child: ingredienti.isEmpty ? Center(
-              child:Text(
-                "Non hai niente nella dispensa!\nDovresti fare la spesa!",
-                style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 15)
-              ),
-            ) : ListView.separated(
+            child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: ingredienti.length, // Sostituisci con il nome della tua lista
+              itemCount: dispensa.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final ingrediente = ingredienti[index];
-                
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 6,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      // Icona
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: primaryGreen.withOpacity(0.1), 
-                          shape: BoxShape.circle
-                        ),
-                        child: Icon(Icons.kitchen, color: primaryGreen, size: 20),
-                      ),
-                      const SizedBox(width: 14),
-                      
-                      // Testi (Nome e Quantità nominale)
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              ingrediente.nome,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A2E),
-                              ),
-                            ),
-                            Text(
-                              '${ingrediente.quantita} ${ingrediente.unitaMisura}',
-                              style: const TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      // Controller Pezzi (+ e -)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                            onPressed: () {
-                              // TODO: setState per diminuire ingrediente.pezzi
-                            },
-                          ),
-                          SizedBox(
-                            width: 24,
-                            child: Text(
-                              '${ingrediente.pezzi}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.add_circle_outline, color: primaryGreen),
-                            onPressed: () {
-                              // TODO: setState per aumentare ingrediente.pezzi
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+              itemBuilder: (context, i) {
+                final dispensa_ing = dispensa[i];
+                return _IngredientiCard(
+                  ingrediente: dispensa_ing,
+                  onTap: () {
+                    // Navigator.push = equivalente di navigation.navigate('Study', ...)
+                    
+                  },
                 );
               },
             ),
-          ),
+          )
         ],
       )
     );
   }
 }
 
+class _IngredientiCard extends StatelessWidget {
+  final Ingredienti ingrediente;
+  final VoidCallback onTap;
+
+  const _IngredientiCard({required this.ingrediente, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ingrediente.nome,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: primaryGreen,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ListaIngredientiScreen extends StatefulWidget{
+  const ListaIngredientiScreen({super.key});
+
+  @override
+  State <ListaIngredientiScreen> createState() => _ListaIngredientiScreen();
+}
+
+class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{ 
+  List<Ingredienti> lista = [];
+  @override
+  Widget build(BuildContext context){
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: primaryGreen),
+          onPressed: () => Navigator.pop(context, false), 
+        ),
+        title: Text("Lista della spesa", style: GoogleFonts.montserrat(color: Colors.black87, fontWeight: FontWeight.bold)),
+      ),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding( 
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Text(
+                "Ingredienti nella lista spesa: ${lista.length}",
+               style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color:Colors.grey),
+              ),
+            ),
+            SizedBox(width: 12),          
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: (){
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          // Sostituisci "FormIngredientiScreen" con il nome reale della tua classe
+                          builder: (context) => const FormIngredientiScreen(), 
+                        ),
+                      );
+                    },
+        child: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
+        backgroundColor: Colors.white,
+      ),
+    );
+  }
+}
+
+class FormIngredientiScreen extends StatefulWidget{
+  const FormIngredientiScreen({super.key});
+
+  @override
+  State <FormIngredientiScreen> createState() => _FormIngredientiScreen();
+}
+
+class _FormIngredientiScreen extends State<FormIngredientiScreen>{ 
+  final _nomeController = TextEditingController();
+  final _quantitaController = TextEditingController();
+  final _unitaController = TextEditingController();
+  final _pezziController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context){
+    final List<String> _unitaDiMisura = ['g', 'kg', 'ml', 'l', 'pz', 'q.b.'];
+    String _unitaSelezionata = 'g';
+    
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: primaryGreen),
+          onPressed: () => Navigator.pop(context, false), 
+        ),
+        title: Text("Aggiunta ingrediente", style: GoogleFonts.montserrat(color: Colors.black87, fontWeight: FontWeight.bold)),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0), // Un po' di spazio dai bordi
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // FORM NOME
+              TextField(
+                controller: _nomeController,
+                decoration: const InputDecoration(labelText: "Nome ingrediente", border: OutlineInputBorder(),),
+              ),
+              const SizedBox(height: 20),
+              
+              // FORM QUANTITÀ
+              TextField(
+                controller: _quantitaController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Quantità (es. 500)",border: OutlineInputBorder(),),
+              ),
+              const SizedBox(height: 20),
+
+              // FORM UNITÀ DI MISURA
+              DropdownMenu<String>(
+                initialSelection: _unitaSelezionata,
+                label: const Text("Unità di misura"),
+                // expandedInsets a zero fa in modo che il menù si allarghi 
+                // esattamente come i TextField sopra e sotto di lui
+                expandedInsets: EdgeInsets.zero, 
+                menuHeight: 200, // Limita l'altezza massima per non fargli occupare tutto lo schermo
+                dropdownMenuEntries: _unitaDiMisura.map((String unita) {
+                  return DropdownMenuEntry<String>(
+                    value: unita,
+                    label: unita,
+                    style: MenuItemButton.styleFrom(
+                      textStyle: GoogleFonts.montserrat(), // Usa il tuo font anche dentro il menù
+                    ),
+                  );
+                }).toList(),
+                onSelected: (String? nuovoValore) {
+                  setState(() {
+                    if (nuovoValore != null) {
+                      _unitaSelezionata = nuovoValore;
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // FORM PEZZI
+              TextField(
+                controller: _pezziController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: "Pezzi (es. 1)", border: OutlineInputBorder(),),
+              ),
+              const Spacer(), 
+        
+              Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const[
+                        BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
+                      ],
+                    ),
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(
+                        "Annulla",
+                        style: GoogleFonts.montserrat(
+                          color: primaryGreen, // Usa il tuo grigio
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: primaryGreen,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: const[
+                        BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
+                      ],
+                    ),
+                    child: TextButton(
+                      onPressed: () {
+                        final nuovoIngrediente = Ingredienti(
+                          nome: _nomeController.text,
+                          quantita: double.tryParse(_quantitaController.text) ?? 0,
+                          unitaMisura: _unitaSelezionata,
+                          pezzi: int.tryParse(_pezziController.text) ?? 1,
+                        );
+                      },
+                      child: Text(
+                        "Conferma",
+                        style: GoogleFonts.montserrat(
+                          color: Colors.white, // Usa il tuo grigio
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

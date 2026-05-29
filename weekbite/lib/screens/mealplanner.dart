@@ -167,7 +167,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                   child: snapshot.connectionState == ConnectionState.waiting
                       ? const Center(child: CircularProgressIndicator(color: primaryGreen))
                       : currentMeals.isEmpty 
-                          ? Center(child: Text("Nessun pasto memorizzato nel DB", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500)))
+                          ? Center(child: Text("Nessun pasto memorizzato ", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500)))
                           : ListView.separated(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                               itemCount: currentMeals.length,
