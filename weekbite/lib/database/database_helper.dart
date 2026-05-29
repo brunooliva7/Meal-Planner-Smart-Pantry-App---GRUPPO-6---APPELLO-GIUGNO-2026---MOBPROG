@@ -317,6 +317,23 @@ class DatabaseHelper {
     return await db.delete('planners', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> saveOrUpdateUser(Map<String, dynamic> userData) async {
+  final db = await instance.database;
+  
+  await db.insert(
+    'users',
+    {
+      'uid': userData['uid'],
+      'email': userData['email'],
+      'name': userData['name'],
+      'photo_url': userData['photo_url'],
+      'preferences_json': userData['preferences_json'] ?? '{}',
+      'registration_date': DateTime.now().toIso8601String(),
+    },
+    conflictAlgorithm: ConflictAlgorithm.replace, // Se l'utente esiste già, sovrascrive i dati
+  );
+}
+
 
   // ==========================================================
   // CHIUSURA DATABASE
