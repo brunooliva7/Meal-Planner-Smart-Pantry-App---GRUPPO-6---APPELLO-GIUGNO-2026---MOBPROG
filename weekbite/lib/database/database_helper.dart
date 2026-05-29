@@ -88,6 +88,18 @@ class DatabaseHelper {
         FOREIGN KEY (planner_id) REFERENCES planners (id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+    CREATE TABLE users (
+      uid TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      photo_url TEXT,
+      preferences_json TEXT,
+      registration_date TEXT,
+      password TEXT
+    )
+    ''');
   }
 
   // ==========================================================
