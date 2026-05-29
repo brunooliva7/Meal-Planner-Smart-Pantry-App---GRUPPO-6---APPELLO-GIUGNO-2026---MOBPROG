@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "299889078137",
+    "project_id": "weekbite-68997",
+    "storage_bucket": "weekbite-68997.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:299889078137:android:064e0187be050b3fb449a8",
+        "android_client_info": {
+          "package_name": "com.android.application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6TunL8MBChE5kWQx-uNdkAfSntzCGixo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
