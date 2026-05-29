@@ -219,7 +219,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 Text(
                   "weekBite",
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w900, color: primaryGreen, letterSpacing: -1),
+                  style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w700, color: primaryGreen, letterSpacing: -1),
                 ),
                 Text(
                   isLogin ? "Bentornato! Accedi per continuare." : "Crea il tuo account per iniziare.",
