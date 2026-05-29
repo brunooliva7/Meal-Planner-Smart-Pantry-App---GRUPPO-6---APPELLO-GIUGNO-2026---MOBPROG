@@ -148,11 +148,13 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => isLoading = true);
     
     try {
-      // 1. Inizializza e lancia il form di Google ufficiale
+      // 1. Lancia il form di Google ufficiale
       final GoogleSignIn googleSignIn = GoogleSignIn();
+      
+      // ATTENZIONE: Questo comando apre la finestra vera di Google
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
-      // Se l'utente chiude il popup di Google senza accedere, interrompiamo
+      // Se l'utente chiude la finestra, interrompi
       if (googleUser == null) {
         setState(() => isLoading = false);
         return; 
@@ -160,31 +162,31 @@ class _AuthScreenState extends State<AuthScreen> {
 
       final db = await DatabaseHelper.instance.database;
 
-      // 2. Controlliamo se questo utente Google esiste già nel nostro SQLite
+      // 2. Cerchiamo l'utente nel DB locale
       final existingUser = await db.query('users', where: 'uid = ?', whereArgs: [googleUser.id]);
 
-      // 3. Se NON ESISTE, lo registriamo estraendo i suoi dati dal profilo Google
+      // 3. Se non esiste, lo registriamo con i dati REALI di Google
       if (existingUser.isEmpty) {
         await db.insert('users', {
-          'uid': googleUser.id,                           // ID di Google (Sicurissimo)
-          'email': googleUser.email,                      // Email reale
-          'name': googleUser.displayName ?? 'Utente',     // Nome e Cognome
-          'photo_url': googleUser.photoUrl ?? '',         // Foto Profilo (se presente)
+          'uid': googleUser.id,
+          'email': googleUser.email,
+          'name': googleUser.displayName ?? 'Utente',
+          'photo_url': googleUser.photoUrl ?? '',
           'preferences_json': '{}',
           'registration_date': DateTime.now().toIso8601String(),
-          'password': 'GOOGLE_AUTH_ACCOUNT',              // Placeholder (Google gestisce la sicurezza)
+          'password': 'GOOGLE_AUTH_ACCOUNT',
         });
       }
 
-      // 4. Se esiste o lo abbiamo appena creato, sblocchiamo l'accesso
-      _showSnackBar("Accesso con Google effettuato!");
+      // 4. Successo reale!
       if (mounted) {
-        Navigator.pop(context, true); // Ritorna al main e sblocca l'app
+        Navigator.pop(context, true); 
       }
       
     } catch (e) {
-      print("ERRORE GOOGLE SIGN IN: $e");
-      _showSnackBar("Errore di comunicazione con Google.", isError: true);
+      // Qui vedrai l'errore REALE se ancora qualcosa non quadra
+      print("Errore reale durante il login: $e");
+      _showSnackBar("Errore di autenticazione: $e", isError: true);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
