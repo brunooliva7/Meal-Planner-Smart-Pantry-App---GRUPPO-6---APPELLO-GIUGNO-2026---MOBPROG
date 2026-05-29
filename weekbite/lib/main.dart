@@ -102,7 +102,15 @@ class _BaseLayoutState extends State<BaseLayout> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(appTitle),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.restaurant_menu, color: primaryGreen),
+            SizedBox(width: 8),
+            const Text(appTitle),
+          ]
+        ),
       ),
       
       // extendBody permette al contenuto di scorrere DIETRO la bottom bar fluttuante
