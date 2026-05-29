@@ -120,7 +120,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                customNameController.dispose();
+                FocusScope.of(context).unfocus();
                 Navigator.pop(dialogContext);
               }, 
               child: Text("Annulla", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w600))
@@ -137,11 +137,13 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   finalMealName = "$selectedType $count";
                 }
 
-                setState(() {
-                  _dayMealTypes[_selectedDay]!.add(finalMealName);
-                  _associatedRecipes[_selectedDay]![finalMealName] = [];
-                });
-                customNameController.dispose();
+                if (mounted) {
+                  setState(() {
+                    _dayMealTypes[_selectedDay]!.add(finalMealName);
+                    _associatedRecipes[_selectedDay]![finalMealName] = [];
+                  });
+                }
+                FocusScope.of(context).unfocus();
                 Navigator.pop(dialogContext);
               },
               child: Text("Aggiungi", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -149,7 +151,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => customNameController.dispose()); // Chiude in modo sicuro dopo la fine del ciclo del dialogo
   }
 
   void _removeMealSlot(String mealType) {
@@ -202,12 +204,14 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     String t = piattoController.text.trim();
                     if (t.isEmpty) return;
                     
-                    setState(() {
-                      _associatedRecipes[_selectedDay]![mealType]!.add(
-                        RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: t, image: "")
-                      );
-                    });
-                    piattoController.dispose(); // Sincronizzato correttamente prima del pop nativo
+                    if (mounted) {
+                      setState(() {
+                        _associatedRecipes[_selectedDay]![mealType]!.add(
+                          RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: t, image: "")
+                        );
+                      });
+                    }
+                    FocusScope.of(context).unfocus(); // Rimuove la tastiera
                     Navigator.pop(bottomSheetContext); 
                   },
                   child: const Icon(Icons.add, color: Colors.white),
@@ -233,12 +237,14 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                           title: Text(recipe['title'] ?? 'Senza Titolo', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: kTextDark)),
                           trailing: const Icon(Icons.add_circle, color: primaryGreen),
                           onTap: () {
-                            setState(() {
-                              _associatedRecipes[_selectedDay]![mealType]!.add(
-                                RecipeModel(id: recipe['id'], title: recipe['title'], image: recipe['image'] ?? "")
-                              );
-                            });
-                            piattoController.dispose();
+                            if (mounted) {
+                              setState(() {
+                                _associatedRecipes[_selectedDay]![mealType]!.add(
+                                  RecipeModel(id: recipe['id'], title: recipe['title'], image: recipe['image'] ?? "")
+                                );
+                              });
+                            }
+                            FocusScope.of(context).unfocus();
                             Navigator.pop(bottomSheetContext);
                           },
                         ),
@@ -249,7 +255,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => piattoController.dispose()); // Il dispose avviene in modo protetto solo alla fine di tutta l'animazione
   }
 
   void _suggestRecipeFromApi(String mealType) {
@@ -390,6 +396,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          // Bloccato l'overflow orizzontale su smartphone stretti
                                           Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 12, color: kTextDark), overflow: TextOverflow.ellipsis)),
                                           const SizedBox(width: 6),
                                           GestureDetector(
