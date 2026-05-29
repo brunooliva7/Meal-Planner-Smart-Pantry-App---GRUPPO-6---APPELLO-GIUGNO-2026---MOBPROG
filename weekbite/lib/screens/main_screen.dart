@@ -8,7 +8,6 @@ import 'recipe.dart';
 import '../database/database_helper.dart';
 
 class MainScreen extends StatefulWidget {
-  // 🟢 Riceve lo stato di login direttamente dal layout principale
   final bool isLogged;
 
   const MainScreen({super.key, this.isLogged = false});
@@ -32,7 +31,6 @@ class _MainScreenState extends State<MainScreen> {
     _refreshAllData();
   }
 
-  // Caricamento condizionale: carica i dati personali solo se l'utente è loggato
   Future<void> _refreshAllData() async {
     await _loadViralRecipes();
     if (widget.isLogged) {
@@ -41,7 +39,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 1. CARICAMENTO PREFERITI
   Future<void> _loadUserFavorites() async {
     setState(() => isLoadingFavorites = true);
     try {
@@ -58,11 +55,9 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 2. CARICAMENTO DISPENSA TRAMITE API
   Future<void> _loadPantryBasedRecipes() async {
     setState(() => isLoadingPantry = true);
     try {
-      // Simulazione ingredienti reali dell'utente
       List<String> myIngredients = ['tomato', 'pasta', 'cheese']; 
       
       if (myIngredients.isEmpty) {
@@ -97,7 +92,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 3. CARICAMENTO RICETTE VIRALI (Cache locale quotidiana)
   Future<void> _loadViralRecipes() async {
     String todayStr = DateTime.now().toString().split(' ')[0];
     List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr);
@@ -152,10 +146,7 @@ class _MainScreenState extends State<MainScreen> {
                 color: theme.colorScheme.primary,
                 child: CustomScrollView(
                   slivers: [
-                    
-                    // 🟢 SEZIONE CONDIZIONALE: Compare solo se l'utente è loggato
                     if (widget.isLogged) ...[
-                      // Sezione Preferiti
                       _buildSectionHeader("I tuoi Preferiti", theme),
                       SliverToBoxAdapter(
                         child: isLoadingFavorites 
@@ -163,7 +154,6 @@ class _MainScreenState extends State<MainScreen> {
                           : _buildHorizontalList(favoriteRecipes, false),
                       ),
 
-                      // Sezione Dispensa
                       _buildSectionHeader("In base alla tua Dispensa", theme),
                       SliverToBoxAdapter(
                         child: isLoadingPantry 
@@ -172,7 +162,6 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ],
 
-                    // 🌍 SEZIONE SEMPRE VISIBILE: Ricette virali del giorno
                     _buildSectionHeader("Esplora Ricette Virali", theme, isLarge: true),
                     _buildApiSliverGrid(theme),
                   ],
@@ -225,6 +214,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // 🟢 HORIZONTAL LIST CORRETTA PER IMMAGINI MANCANTI
   Widget _buildHorizontalList(List list, bool isFromApi) {
     if (list.isEmpty) {
       return Padding(
@@ -241,6 +231,28 @@ class _MainScreenState extends State<MainScreen> {
         itemCount: list.length,
         itemBuilder: (context, index) {
           final recipe = list[index];
+          String imageUrl = recipe['image'] ?? '';
+
+          // Logica di fallback: Se l'URL non esiste o è vuoto, usa un contenitore segnaposto
+          Widget imageWidget;
+          if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
+            imageWidget = Image.network(
+              imageUrl,
+              height: 100,
+              width: 150,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                height: 100, width: 150, color: Colors.grey[200],
+                child: const Icon(Icons.restaurant_menu, color: Colors.grey, size: 40),
+              ),
+            );
+          } else {
+            imageWidget = Container(
+              height: 100, width: 150, color: Colors.grey[200],
+              child: const Icon(Icons.restaurant_menu, color: Colors.grey, size: 40),
+            );
+          }
+
           return Container(
             width: 150,
             margin: const EdgeInsets.only(right: 12),
@@ -252,12 +264,7 @@ class _MainScreenState extends State<MainScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: Image.network(
-                      recipe['image'] ?? 'https://via.placeholder.com/150',
-                      height: 100,
-                      width: 150,
-                      fit: BoxFit.cover,
-                    ),
+                    child: imageWidget, // Mostra l'immagine o il segnaposto
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -275,6 +282,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // 🟢 GRIGLIA VIRALE CORRETTA PER IMMAGINI MANCANTI
   Widget _buildApiSliverGrid(ThemeData theme) {
     if (isLoadingViral) {
       return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
@@ -287,6 +295,25 @@ class _MainScreenState extends State<MainScreen> {
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final recipe = viralRecipes[index];
+            String imageUrl = recipe['image'] ?? '';
+
+            Widget imageWidget;
+            if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
+              imageWidget = Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Colors.grey[200],
+                  child: const Center(child: Icon(Icons.restaurant_menu, color: Colors.grey, size: 50)),
+                ),
+              );
+            } else {
+              imageWidget = Container(
+                color: Colors.grey[200],
+                child: const Center(child: Icon(Icons.restaurant_menu, color: Colors.grey, size: 50)),
+              );
+            }
+
             return InkWell(
               onTap: () => Navigator.push(context, MaterialPageRoute(
                 builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: true))),
@@ -296,12 +323,12 @@ class _MainScreenState extends State<MainScreen> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15),
-                      child: Image.network(recipe['image'], fit: BoxFit.cover),
+                      child: imageWidget, // Mostra l'immagine o il segnaposto
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(recipe['title'], maxLines: 2, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14)),
+                    child: Text(recipe['title'] ?? 'Senza titolo', maxLines: 2, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ],
               ),

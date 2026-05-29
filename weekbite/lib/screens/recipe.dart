@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:translator/translator.dart'; 
-import '../database/database_helper.dart'; // 📂 Connessione al Database SQLite del gruppo
+import '../database/database_helper.dart'; 
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -22,19 +22,18 @@ class RecipeDetailScreen extends StatefulWidget {
 }
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
-  // 🧪 IMPOSTATO A FALSE PER IL TUO TEST: l'app bloccherà le azioni mostrando l'avviso.
+  // 🟢 Ora non è più bloccato a false, ma si aggiornerà leggendo il database
   bool isUserLogged = false; 
 
   bool isDownloaded = false;
   bool isFavorite = false;
-  bool isEditing = false; // Gestisce l'abilitazione dei campi di testo inline
+  bool isEditing = false; 
   
   late int servings;
   late int originalServings;
   bool isLocalLoading = false; 
   bool isTranslating = false;
 
-  // Controller per la modifica in tempo reale dei testi
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _instructionsController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -46,10 +45,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     _initRecipeState();
   }
 
-  // Inizializzazione controllando i dati persistenti dentro SQLite
   Future<void> _initRecipeState() async {
     int recipeId = widget.recipeData['id'] ?? 0;
     
+    // 🟢 CONTROLLO REALE DI LOGIN: Verifica se esiste un utente nel Database
+    final db = await DatabaseHelper.instance.database;
+    final userCheck = await db.query('users');
+    bool checkLogged = userCheck.isNotEmpty;
+
     bool favStatus = await DatabaseHelper.instance.isFavorite(recipeId);
     bool downloadStatus = await DatabaseHelper.instance.isRecipeDownloaded(recipeId);
     
@@ -59,6 +62,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     }
 
     setState(() {
+      isUserLogged = checkLogged; // Aggiorna lo stato reale dell'utente!
       isFavorite = favStatus;
       isDownloaded = downloadStatus;
       
@@ -71,7 +75,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       _titleController.text = localData?['title'] ?? widget.recipeData['title'] ?? 'Senza Titolo';
       _notesController.text = localData?['personalNotes'] ?? widget.recipeData['personalNotes'] ?? "";
       
-      // Estraiamo e puliamo il procedimento dai tag HTML di Spoonacular
       String rawInstructions = localData?['instructions'] ?? widget.recipeData['instructions'] ?? "Nessuna istruzione fornita per questa ricetta.";
       _instructionsController.text = _cleanHtml(rawInstructions);
     });
@@ -81,13 +84,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     }
   }
 
-  // Funzione di supporto per ripulire le stringhe sporche di tag HTML (<ol>, <li>, ecc)
   String _cleanHtml(String htmlString) {
     RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
     return htmlString.replaceAll(exp, '').trim();
   }
 
-  // Traduttore automatico simultaneo per ricette API inglesi
   Future<void> _translateContent() async {
     setState(() => isTranslating = true);
     final translator = GoogleTranslator();
@@ -142,7 +143,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     return unit; 
   }
 
-  // MOSTRA IL MESSAGGIO BLOCCO UTENTE SE NON LOGGATO 
   void _showLoginWarning() {
     ScaffoldMessenger.of(context).removeCurrentSnackBar(); 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -167,7 +167,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
-  // PRIMO SALVATAGGIO (DOWNLOAD STRUTTURA API IN SQLITE)
   Future<void> _downloadRecipeAction() async {
     setState(() => isLocalLoading = true);
     
@@ -192,7 +191,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     });
   }
 
-  // SALVATAGGIO COMPLESSIVO DELLE MODIFICHE EFFETTUATE NEI CAMPI DI TESTO
   Future<void> _saveModifications() async {
     int recipeId = widget.recipeData['id'] ?? 0;
     
@@ -223,7 +221,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       body: CustomScrollView(
         physics: const ClampingScrollPhysics(),
         slivers: [
-          // COPERTINA RICETTA
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
@@ -248,21 +245,19 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             ),
           ),
 
-          // INFORMAZIONI CORPO SCHERMATA
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✏️ EDITING INLINE DEL TITOLO
                   if (isTranslating)
                     Text("Traduzione in corso...", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold))
                   else if (isEditing)
                     TextField(
                       controller: _titleController,
                       style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.w800),
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         labelText: "Nome della Ricetta",
                         labelStyle: TextStyle(color: primaryGreen),
                         focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: primaryGreen, width: 2)),
@@ -281,12 +276,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       const SizedBox(width: 24),
                       Icon(isDownloaded ? Icons.cloud_done : Icons.cloud_download_outlined, color: isDownloaded ? primaryGreen : unselectedIconColor, size: 20),
                       const SizedBox(width: 6),
-                      Text(isDownloaded ? "Salvato nel DB" : "Solo Online", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                      Text(isDownloaded ? "Salvato" : "Solo Online", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
                     ],
                   ),
                   const SizedBox(height: 24),
 
-                  // BARRA STRUMENTI INTERATTIVI
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -310,7 +304,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       
                       Row(
                         children: [
-                          // CUORE PREFERITI PROTETTO DA BLOCCO LOGIN 🔒
                           Container(
                             margin: const EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(color: Colors.grey[100], shape: BoxShape.circle, border: Border.all(color: Colors.grey[300]!)),
@@ -331,7 +324,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                             ),
                           ),
 
-                          // TASTI SALVA / MODIFICA PROTETTI DA BLOCCO LOGIN 🔒
                           if (isLocalLoading)
                             const SizedBox(width: 30, height: 30, child: CircularProgressIndicator(color: primaryGreen, strokeWidth: 2))
                           else if (isEditing)
@@ -373,9 +365,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   ),
                   const Divider(height: 48, color: Colors.black12),
 
-                  // ==========================================================
-                  // SEZIONE INGREDIENTI (EDITABILI INLINE)
-                  // ==========================================================
                   Text("Ingredienti", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87)),
                   const SizedBox(height: 16),
                   
@@ -403,7 +392,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         double currentAmount = _getScaledAmount(originalAmount);
                         String name = ing['translatedName'] ?? ing['name'] ?? "Ingrediente";
 
-                        // MODALITÀ INLINE EDITING ATTIVA PER GLI INGREDIENTI
                         if (isEditing) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 6.0),
@@ -417,7 +405,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                     style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: primaryGreen),
                                     decoration: InputDecoration(
                                       suffixText: translatedUnit,
-                                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: primaryGreen)),
+                                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: primaryGreen)),
                                     ),
                                     onChanged: (val) {
                                       double? parsed = double.tryParse(val);
@@ -436,7 +424,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                   child: TextFormField(
                                     initialValue: name,
                                     style: GoogleFonts.montserrat(fontSize: 14),
-                                    decoration: InputDecoration(
+                                    decoration: const InputDecoration(
                                       focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: primaryGreen)),
                                     ),
                                     onChanged: (val) {
@@ -450,7 +438,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           );
                         }
 
-                        // MODALITÀ LETTURA STANDARD
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
                           child: Row(
@@ -468,13 +455,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
                   const Divider(height: 48, color: Colors.black12),
 
-                  // ==========================================================
-                  // SEZIONE PROCEDIMENTO (EDITABILE INLINE + ROTELLINA TRADUZIONE)
-                  // ==========================================================
                   Text("Procedimento", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87)),
                   const SizedBox(height: 12),
                   
-                  // Aggiunto il controllo: mostra la rotellina se sta ancora traducendo!
                   if (isTranslating)
                     const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator(color: primaryGreen)))
                   else if (isEditing)
@@ -493,9 +476,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       style: GoogleFonts.montserrat(fontSize: 15, height: 1.6, color: Colors.black87),
                     ),
 
-                  // ==========================================================
-                  // SEZIONE LE TUE NOTE
-                  // ==========================================================
                   if (isUserLogged && isDownloaded) ...[
                     const Divider(height: 48, color: Colors.black12),
                     Text("Le tue Note", style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87)),
