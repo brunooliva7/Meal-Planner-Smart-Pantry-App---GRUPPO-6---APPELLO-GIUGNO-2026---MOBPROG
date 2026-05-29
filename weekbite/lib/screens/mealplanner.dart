@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'recipe.dart'; 
 import 'modifyplanner.dart'; 
 import 'recipe_model.dart'; 
+import '../database/database_helper.dart'; 
 
 void main() {
   runApp(const MaterialApp(
@@ -32,25 +33,6 @@ class MealSlot {
   });
 }
 
-final Map<String, List<MealSlot>> mockWeeklyPlanner = {
-  "Lunedì": [
-    const MealSlot(id: "1", type: "COLAZIONE", emoji: "🥞", recipes: []),
-    MealSlot(id: "2", type: "PRANZO", emoji: "🍝", recipes: [
-      const RecipeModel(id: 716429, title: "Pasta with Garlic", image: ""),
-      const RecipeModel(id: 637999, title: "Grilled Chicken Breast", image: ""), 
-    ]),
-    const MealSlot(id: "3", type: "SPUNTINO 1", emoji: "🍏", recipes: []),
-    const MealSlot(id: "4", type: "SPUNTINO 2", emoji: "🔋", recipes: []), 
-    const MealSlot(id: "5", type: "CENA", emoji: "🥩", recipes: []),
-  ],
-  "Martedì": [
-    const MealSlot(id: "1", type: "COLAZIONE", emoji: "🥞", recipes: []),
-    const MealSlot(id: "2", type: "PRANZO", emoji: "🍝", recipes: []),
-    const MealSlot(id: "3", type: "CENA", emoji: "🥩", recipes: []),
-  ],
-  "Mercoledì": [], "Giovedì": [], "Venerdì": [], "Sabato": [], "Domenica": []
-};
-
 class MealPlanScreen extends StatefulWidget {
   const MealPlanScreen({super.key});
 
@@ -61,6 +43,9 @@ class MealPlanScreen extends StatefulWidget {
 class _MealPlanScreenState extends State<MealPlanScreen> {
   final List<String> _days = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
   int _currentDayIndex = 0;
+  
+  // 🌟 Nome del planner di riferimento (può essere modificato o scelto dinamicamente)
+  String _currentPlannerName = "Dieta Definizione Estate 🏋️"; 
 
   void _nextDay() => _currentDayIndex < _days.length - 1 ? setState(() => _currentDayIndex++) : null;
   void _previousDay() => _currentDayIndex > 0 ? setState(() => _currentDayIndex--) : null;
@@ -68,97 +53,133 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final String currentDay = _days[_currentDayIndex];
-    final List<MealSlot> currentMeals = mockWeeklyPlanner[currentDay] ?? [];
 
-    return Scaffold(
-      backgroundColor: kBackgroundClear,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Row(
-                children: [
-                  Container(
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: IconButton(
-                      icon: const Icon(Icons.edit_note_rounded, size: 28, color: primaryGreen),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => EditMealPlanScreen(
-                              initialPlannerName: "Dieta Definizione Estate 🏋️", 
-                              initialDayMealTypes: const {
-                                "Lunedì": ["COLAZIONE", "SPUNTINO 1", "PRANZO", "SPUNTINO 2", "CENA"],
-                                "Martedì": ["COLAZIONE", "PRANZO", "CENA"],
-                                "Mercoledì": ["COLAZIONE", "PRANZO", "CENA"],
-                                "Giovedì": ["COLAZIONE", "PRANZO", "CENA"],
-                                "Venerdì": ["COLAZIONE", "PRANZO", "CENA"],
-                                "Sabato": ["COLAZIONE", "PRANZO", "CENA"],
-                                "Domenica": ["COLAZIONE", "PRANZO", "CENA"],
-                              },
-                              initialAssociatedRecipes: const {
-                                "Lunedì": {
-                                  "COLAZIONE": [],
-                                  "SPUNTINO 1": [],
-                                  "PRANZO": [
-                                    RecipeModel(id: 716429, title: "Pasta with Garlic", image: ""),
-                                    RecipeModel(id: 637999, title: "Grilled Chicken Breast", image: ""),
-                                  ],
-                                  "SPUNTINO 2": [],
-                                  "CENA": [],
-                                },
-                                "Martedì": {"COLAZIONE": [], "PRANZO": [], "CENA": []},
-                                "Mercoledì": {}, "Giovedì": {}, "Venerdì": {}, "Sabato": {}, "Domenica": {}
-                              },
+    // 🛠️ LETTURA DAL DB: FutureBuilder per estrarre asincronamente i dati reali del planner corrente
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: DatabaseHelper.instance.getPlannerComplete(_currentPlannerName),
+      builder: (context, snapshot) {
+        int activePlannerId = 0;
+        List<MealSlot> currentMeals = [];
+        Map<String, List<String>> currentDayMealTypes = {};
+        Map<String, Map<String, List<RecipeModel>>> currentAssociatedRecipes = {};
+
+        if (snapshot.hasData && snapshot.data != null) {
+          final data = snapshot.data!;
+          activePlannerId = data['id'] ?? 0;
+          currentDayMealTypes = data['dayMealTypes'] ?? {};
+          currentAssociatedRecipes = data['associatedRecipes'] ?? {};
+
+          // Ricostruiamo la lista di MealSlot per il giorno selezionato partendo dai dati del DB
+          if (currentAssociatedRecipes.containsKey(currentDay)) {
+            int indexCounter = 0;
+            currentAssociatedRecipes[currentDay]!.forEach((mealType, recipesList) {
+              final baseType = mealType.split(' ')[0];
+              final Map<String, String> mealEmojis = {
+                "COLAZIONE": "🥞", "PRANZO": "🍝", "SPUNTINO": "🍏", "MERENDA": "🧃", "CENA": "🥩", "ALTRO": "🍲"
+              };
+              currentMeals.add(MealSlot(
+                id: indexCounter.toString(),
+                type: mealType,
+                emoji: mealEmojis[baseType] ?? "🍲",
+                recipes: recipesList,
+              ));
+              indexCounter++;
+            });
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: kBackgroundClear,
+          body: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: IconButton(
+                          icon: const Icon(Icons.edit_note_rounded, size: 28, color: primaryGreen),
+                          onPressed: () async {
+                            if (activePlannerId == 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text("Crea prima un planner per poterlo modificare!"),
+                                backgroundColor: Colors.redAccent,
+                              ));
+                              return;
+                            }
+
+                            // 🌟 AGGIORNAMENTO IN TEMPO REALE: Attendiamo il responso della schermata di modifica
+                            final bool? rinfrescaDati = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => EditMealPlanScreen(
+                                  plannerId: activePlannerId,
+                                  initialPlannerName: _currentPlannerName,
+                                  initialDayMealTypes: currentDayMealTypes,
+                                  initialAssociatedRecipes: currentAssociatedRecipes,
+                                ),
+                              ),
+                            );
+
+                            // Se è stato effettuato un salvataggio (true), aggiorna lo stato grafico locale
+                            if (rinfrescaDati == true) {
+                              setState(() {});
+                            }
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left_rounded, size: 28),
+                              color: _currentDayIndex == 0 ? Colors.grey.shade300 : primaryGreen,
+                              onPressed: _previousDay,
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                            // 🛠️ PROTEZIONE OVERFLOW: Avvolto in Flexible per schermi smartphone stretti
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
+                                child: Text(
+                                  currentDay, 
+                                  style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right_rounded, size: 28),
+                              color: _currentDayIndex == _days.length - 1 ? Colors.grey.shade300 : primaryGreen,
+                              onPressed: _nextDay,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const IgnorePointer(child: Opacity(opacity: 0, child: Icon(Icons.edit_note_rounded, size: 28))),
+                    ],
                   ),
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left_rounded, size: 28),
-                          color: _currentDayIndex == 0 ? Colors.grey.shade300 : primaryGreen,
-                          onPressed: _previousDay,
-                        ),
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
-                            child: Text(currentDay, style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark)),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right_rounded, size: 28),
-                          color: _currentDayIndex == _days.length - 1 ? Colors.grey.shade300 : primaryGreen,
-                          onPressed: _nextDay,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const IgnorePointer(child: Opacity(opacity: 0, child: Icon(Icons.edit_note_rounded, size: 28))),
-                ],
-              ),
+                ),
+                Expanded(
+                  child: snapshot.connectionState == ConnectionState.waiting
+                      ? const Center(child: CircularProgressIndicator(color: primaryGreen))
+                      : currentMeals.isEmpty 
+                          ? Center(child: Text("Nessun pasto memorizzato nel DB", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500)))
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              itemCount: currentMeals.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 14),
+                              itemBuilder: (context, index) => _MealCard(slot: currentMeals[index]),
+                            ),
+                ),
+              ],
             ),
-            Expanded(
-              child: currentMeals.isEmpty 
-                ? Center(child: Text("Nessun pasto pianificato", style: GoogleFonts.montserrat(color: kTextMuted)))
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    itemCount: currentMeals.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) => _MealCard(slot: currentMeals[index]),
-                  ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -189,13 +210,21 @@ class _MealCard extends StatelessWidget {
               child: Text(slot.emoji, style: const TextStyle(fontSize: 26)),
             ),
             const SizedBox(width: 14),
+            // 🛠️ PROTEZIONE OVERFLOW: Avvolto l'intero blocco informativo destro in un Expanded strutturale
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text(slot.type, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.2)),
+                      // 🛠️ PROTEZIONE OVERFLOW: Flexible per evitare che mealType molto lunghi rompano la riga
+                      Flexible(
+                        child: Text(
+                          slot.type, 
+                          style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.2),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -203,7 +232,10 @@ class _MealCard extends StatelessWidget {
                           color: hasRecipes ? primaryGreen.withOpacity(0.1) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(hasRecipes ? '${slot.recipes.length} Piatti' : 'Vuoto', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: hasRecipes ? primaryGreen : kTextMuted)),
+                        child: Text(
+                          hasRecipes ? '${slot.recipes.length} Piatti' : 'Vuoto', 
+                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: hasRecipes ? primaryGreen : kTextMuted),
+                        ),
                       ),
                     ],
                   ),
@@ -217,12 +249,24 @@ class _MealCard extends StatelessWidget {
                       children: slot.recipes.map((recipe) {
                         return InkWell(
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => RecipeDetailScreen(recipeData: recipe.toMap(), isFromApi: true),
-                              ),
-                            );
+                            // 🌟 LOGICA REINDIRIZZAMENTO RICHIESTA: Distinguere tra ID negativi e positivi
+                            if (recipe.id < 0) {
+                              // 🔍 Caso A: Scritto a mano (id negativo). Apri i dettagli via testo/API
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RecipeDetailScreen(recipeData: recipe.toMap(), isFromApi: true),
+                                ),
+                              );
+                            } else {
+                              // 💾 Caso B: Ricetta salvata nel DB locale (id positivo). Apri i dati prelevati localmente
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => RecipeDetailScreen(recipeData: recipe.toMap(), isFromApi: false),
+                                ),
+                              );
+                            }
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
@@ -235,6 +279,7 @@ class _MealCard extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // 🛠️ PROTEZIONE OVERFLOW: Flexible e TextOverflow.ellipsis impediscono a ricette lunghe di uscire dalla card
                                 Flexible(
                                   child: Text(
                                     recipe.title,
