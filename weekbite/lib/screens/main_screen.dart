@@ -2,12 +2,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Gestione della persistenza locale
-import 'package:translator/translator.dart'; // 🌍 Pacchetto per la traduzione automatica dei titoli
+import 'package:translator/translator.dart'; 
 import 'search_screen.dart';
-import 'recipe.dart'; // Importazione corretta per la schermata di dettaglio del tuo progetto
+import 'recipe.dart'; 
+import '../database/database_helper.dart'; // 📂 Importazione del nuovo Database SQLite
 
-// COLORI UFFICIALI DEL GRUPPO EREDITATI DAL MAIN
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
 const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
@@ -20,38 +19,35 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  bool isUserLogged = false; // Se impostato su true, mostra le liste orizzontali in alto
+  bool isUserLogged = false; 
   List recipes = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // All'avvio controlla se esistono ricette salvate localmente per la giornata di oggi
     _loadLocalOrFetchViralRecipes();
   }
 
-  // LOGICA DI CONTROLLO DEL CACHING LOCALE
+  // LOGICA DI CONTROLLO TRAMITE DATABASE SQLITE
   Future<void> _loadLocalOrFetchViralRecipes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? cachedRecipesStr = prefs.getString('cached_viral_recipes');
-      final String? lastFetchDate = prefs.getString('last_viral_fetch_date');
-      
-      // Data odierna in formato YYYY-MM-DD
       String todayStr = DateTime.now().toString().split(' ')[0];
+      
+      // Cerchiamo la cache all'interno della tabella SQLite
+      List<dynamic> cachedRecipes = await DatabaseHelper.instance.getViralCache(todayStr);
 
-      if (cachedRecipesStr != null && lastFetchDate == todayStr) {
-        // DATI PREGRESSI TROVATI: Carica istantaneamente dalla memoria (già tradotti in italiano!)
+      if (cachedRecipes.isNotEmpty) {
+        // Cache valida trovata nel DB
         if (mounted) {
           setState(() {
-            recipes = json.decode(cachedRecipesStr);
+            recipes = cachedRecipes;
             isLoading = false;
           });
         }
-        print("🎉 Ricette di oggi caricate in italiano dalla cache (0 token consumati)");
+        print("🎉 Ricette virali caricate dal Database SQLite locale (0 token consumati)");
       } else {
-        // NESSUN DATO O CACHE SCADUTA: Effettua la richiesta API reale e la traduce
+        // Tabella vuota o data scaduta: scarica nuove ricette
         _fetchViralRecipesAndCache(todayStr);
       }
     } catch (e) {
@@ -60,7 +56,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // VERA CHIAMATA API DI RETE A SPOONACULAR + TRADUTTORE LIVE AUTOMATICO
   Future<void> _fetchViralRecipesAndCache(String todayDate) async {
     const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174'; 
     const url = 'https://api.spoonacular.com/recipes/random?number=30&tags=italian&apiKey=$apiKey';
@@ -72,27 +67,22 @@ class _MainScreenState extends State<MainScreen> {
         final data = json.decode(response.body);
         List fetchedRecipes = data['recipes'] ?? [];
 
-        // 🌍 LOGICA DI TRADUZIONE SIMULTANEA DEI 30 TITOLI DELLE CARD
         final translator = GoogleTranslator();
         
-        // Eseguiamo tutte le traduzioni in parallelo per non rallentare l'avvio
         await Future.wait(fetchedRecipes.map((recipe) async {
           String originalTitle = recipe['title'] ?? '';
           if (originalTitle.isNotEmpty) {
             try {
               var translation = await translator.translate(originalTitle, from: 'en', to: 'it');
-              recipe['title'] = translation.text; // Sovrascriviamo il titolo inglese con quello italiano
+              recipe['title'] = translation.text; 
             } catch (e) {
-              print("Errore traduzione titolo singolo: $e");
-              // In caso di micro-errore, mantiene il titolo originale senza bloccarsi
+              print("Errore traduzione: $e");
             }
           }
         }));
 
-        // Scrittura dei dati già tradotti nella memoria permanente del dispositivo
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('cached_viral_recipes', json.encode(fetchedRecipes));
-        await prefs.setString('last_viral_fetch_date', todayDate);
+        // SALVATAGGIO NELLA TABELLA SQLITE CACHE
+        await DatabaseHelper.instance.saveViralCache(fetchedRecipes, todayDate);
 
         if (mounted) {
           setState(() {
@@ -100,34 +90,30 @@ class _MainScreenState extends State<MainScreen> {
             isLoading = false;
           });
         }
-        print("📡 Nuove ricette scaricate, TRADOTTE in italiano e salvate localmente!");
+        print("📡 Nuove ricette salvate nella cache SQLite con successo!");
       } else {
-        print("🔴 ERRORE RISPOSTA API: Codice ${response.statusCode}");
+        print("🔴 Errore risposta API: ${response.statusCode}");
         if (mounted) setState(() => isLoading = false);
       }
     } catch (e) {
-      print("🔴 ECCEZIONE DURANTE LA RICHIESTA DI RETE: $e");
+      print("🔴 Eccezione di rete: $e");
       if (mounted) setState(() => isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold pulito che fa da Material Container integrato con il BaseLayout del main.dart
     return Scaffold(
       backgroundColor: backgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // 1. BARRA DI RICERCA FISSA IN ALTO
             _buildSearchBar(context),
-
-            // 2. CORPO SCORREVOLE
             Expanded(
               child: CustomScrollView(
+                physics: const ClampingScrollPhysics(),
                 slivers: [
-                  // SEZIONE UTENTE LOGGATO
                   if (isUserLogged) ...[
                     SliverToBoxAdapter(
                       child: Padding(
@@ -136,7 +122,6 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ),
                     SliverToBoxAdapter(child: _buildHorizontalList()), 
-                    
                     SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -145,16 +130,12 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                     SliverToBoxAdapter(child: _buildHorizontalList()), 
                   ],
-
-                  // TITOLO RICETTE VIRALI
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
                       child: Text("Esplora Ricette Virali", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
-
-                  // 3. LA GRIGLIA DELL'API (ORA COMPLETAMENTE TRADOTTA)
                   _buildApiSliverGrid(),
                 ],
               ),
@@ -165,7 +146,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // --- COSTRUTTORE DELLA BARRA DI RICERCA ---
   Widget _buildSearchBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
@@ -193,7 +173,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // --- COSTRUTTORE DELLE LISTE ORIZZONTALI ---
   Widget _buildHorizontalList() {
     return SizedBox(
       height: 160,
@@ -203,11 +182,12 @@ class _MainScreenState extends State<MainScreen> {
         itemCount: 5,
         itemBuilder: (context, index) {
           final mockLocalRecipe = {
+            "id": 999 + index,
             "title": "Ricetta Preferita #${index + 1}",
             "image": "https://via.placeholder.com/400x300",
             "readyInMinutes": 25,
             "servings": 4,
-            "ingredients": [
+            "extendedIngredients": [
               {"name": "ingrediente prova 1", "amount": 200.0, "unit": "g"}
             ],
             "isFavorite": true,
@@ -247,35 +227,14 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // --- COSTRUTTORE DELLA GRIGLIA VERTICALE SLIVER ---
   Widget _buildApiSliverGrid() {
     if (isLoading) {
-      return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.only(top: 50.0),
-          child: Center(child: CircularProgressIndicator(color: primaryGreen)),
-        ),
-      );
+      return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.only(top: 50.0), child: Center(child: CircularProgressIndicator(color: primaryGreen))));
     }
-
-    if (recipes.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 50.0),
-          child: Center(child: Text("Nessuna ricetta trovata.", style: GoogleFonts.montserrat())),
-        ),
-      );
-    }
-
     return SliverPadding(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 30), 
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 0.8,
-        ),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.8),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final recipe = recipes[index];
@@ -286,15 +245,7 @@ class _MainScreenState extends State<MainScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RecipeDetailScreen(
-                        recipeData: recipe,
-                        isFromApi: true,
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => RecipeDetailScreen(recipeData: recipe, isFromApi: true)));
                 },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,21 +254,13 @@ class _MainScreenState extends State<MainScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                          image: DecorationImage(
-                            image: NetworkImage(recipe['image'] ?? 'https://via.placeholder.com/150'),
-                            fit: BoxFit.cover,
-                          ),
+                          image: DecorationImage(image: NetworkImage(recipe['image'] ?? 'https://via.placeholder.com/150'), fit: BoxFit.cover),
                         ),
                       ),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        recipe['title'] ?? 'Senza Titolo',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text(recipe['title'] ?? 'Senza Titolo', maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),

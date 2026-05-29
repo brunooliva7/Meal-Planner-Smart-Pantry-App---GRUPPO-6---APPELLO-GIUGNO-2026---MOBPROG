@@ -59,7 +59,7 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: const BaseLayout(),
     );
   }
 }
@@ -78,7 +78,7 @@ class _BaseLayoutState extends State<BaseLayout> {
   // 📄 LE TUE SCHERMATE (QUI SOSTITUIRAI CON I TUOI FILE)
   // ==========================================================
   static final List<Widget> _pages = <Widget>[
-    const RicetteScreen(),
+    const MainScreen(),
     Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     const DispensaScreen(),
