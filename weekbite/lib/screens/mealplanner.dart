@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'recipe.dart'; 
-
+import 'modifyplanner.dart'; 
+import 'recipe_model.dart'; 
 
 void main() {
   runApp(const MaterialApp(
@@ -11,43 +12,17 @@ void main() {
 }
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
-const Color backgroundColor = Colors.white;
-const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
-
 const Color kCardBackground = Colors.white;
 const Color kTextDark = Color(0xFF1A1A2E); 
 const Color kTextMuted = Color(0xFF9CA3AF);
 const Color kBorderColor = Color(0xFFF3F4F6); 
 const Color kBackgroundClear = Color(0xFFF9F9FB); 
 
-// ==========================================================
-// 📦 MODELLI DATI AGGIORNATI
-// ==========================================================
-class RecipeModel {
-  final int id;
-  final String title;
-  final String image;
-
-  const RecipeModel({required this.id, required this.title, required this.image});
-
-  factory RecipeModel.fromJson(Map<String, dynamic> json) {
-    return RecipeModel(
-      id: json['id'] ?? 0,
-      title: json['title'] ?? 'Nessun Titolo',
-      image: json['image'] ?? '',
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {'id': id, 'title': title, 'image': image};
-  }
-}
-
 class MealSlot {
-  final String id;    // ID univoco per distinguere anche più spuntini
-  final String type;  // COLAZIONE, PRANZO, SPUNTINO, ecc.
+  final String id;    
+  final String type;  
   final String emoji;
-  final List<RecipeModel> recipes; // 👈 ORA È UNA LISTA DI RICETTE!
+  final List<RecipeModel> recipes; 
 
   const MealSlot({
     required this.id,
@@ -57,16 +32,15 @@ class MealSlot {
   });
 }
 
-// Mock di test aggiornato con più piatti nel pranzo di Lunedì
 final Map<String, List<MealSlot>> mockWeeklyPlanner = {
   "Lunedì": [
     const MealSlot(id: "1", type: "COLAZIONE", emoji: "🥞", recipes: []),
     MealSlot(id: "2", type: "PRANZO", emoji: "🍝", recipes: [
       const RecipeModel(id: 716429, title: "Pasta with Garlic", image: ""),
-      const RecipeModel(id: 637999, title: "Grilled Chicken Breast", image: ""), // 👈 Due piatti insieme!
+      const RecipeModel(id: 637999, title: "Grilled Chicken Breast", image: ""), 
     ]),
     const MealSlot(id: "3", type: "SPUNTINO 1", emoji: "🍏", recipes: []),
-    const MealSlot(id: "4", type: "SPUNTINO 2", emoji: "🔋", recipes: []), // 👈 Un secondo spuntino aggiunto
+    const MealSlot(id: "4", type: "SPUNTINO 2", emoji: "🔋", recipes: []), 
     const MealSlot(id: "5", type: "CENA", emoji: "🥩", recipes: []),
   ],
   "Martedì": [
@@ -74,7 +48,6 @@ final Map<String, List<MealSlot>> mockWeeklyPlanner = {
     const MealSlot(id: "2", type: "PRANZO", emoji: "🍝", recipes: []),
     const MealSlot(id: "3", type: "CENA", emoji: "🥩", recipes: []),
   ],
-  // Gli altri giorni si adatteranno dinamicamente in base a cosa ritorna il DB
   "Mercoledì": [], "Giovedì": [], "Venerdì": [], "Sabato": [], "Domenica": []
 };
 
@@ -102,7 +75,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // NAVBAR SUPERIORE
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Row(
@@ -112,7 +84,37 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                     child: IconButton(
                       icon: const Icon(Icons.edit_note_rounded, size: 28, color: primaryGreen),
                       onPressed: () {
-                        // Navigazione alla pagina di creazione form
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EditMealPlanScreen(
+                              initialPlannerName: "Dieta Definizione Estate 🏋️", 
+                              initialDayMealTypes: const {
+                                "Lunedì": ["COLAZIONE", "SPUNTINO 1", "PRANZO", "SPUNTINO 2", "CENA"],
+                                "Martedì": ["COLAZIONE", "PRANZO", "CENA"],
+                                "Mercoledì": ["COLAZIONE", "PRANZO", "CENA"],
+                                "Giovedì": ["COLAZIONE", "PRANZO", "CENA"],
+                                "Venerdì": ["COLAZIONE", "PRANZO", "CENA"],
+                                "Sabato": ["COLAZIONE", "PRANZO", "CENA"],
+                                "Domenica": ["COLAZIONE", "PRANZO", "CENA"],
+                              },
+                              initialAssociatedRecipes: const {
+                                "Lunedì": {
+                                  "COLAZIONE": [],
+                                  "SPUNTINO 1": [],
+                                  "PRANZO": [
+                                    RecipeModel(id: 716429, title: "Pasta with Garlic", image: ""),
+                                    RecipeModel(id: 637999, title: "Grilled Chicken Breast", image: ""),
+                                  ],
+                                  "SPUNTINO 2": [],
+                                  "CENA": [],
+                                },
+                                "Martedì": {"COLAZIONE": [], "PRANZO": [], "CENA": []},
+                                "Mercoledì": {}, "Giovedì": {}, "Venerdì": {}, "Sabato": {}, "Domenica": {}
+                              },
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -144,8 +146,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                 ],
               ),
             ),
-
-            // LISTA PASTI DINAMICI
             Expanded(
               child: currentMeals.isEmpty 
                 ? Center(child: Text("Nessun pasto pianificato", style: GoogleFonts.montserrat(color: kTextMuted)))
@@ -163,9 +163,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
   }
 }
 
-// ==========================================================
-// 📇 CARD DEL PASTO CON PIÙ PIATTI CLICCABILI
-// ==========================================================
 class _MealCard extends StatelessWidget {
   final MealSlot slot;
   const _MealCard({required this.slot});
@@ -179,7 +176,7 @@ class _MealCard extends StatelessWidget {
         color: kCardBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: kBorderColor),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -203,7 +200,7 @@ class _MealCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: hasRecipes ? primaryGreen.withValues(alpha: 0.1) : Colors.grey.shade100,
+                          color: hasRecipes ? primaryGreen.withOpacity(0.1) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(hasRecipes ? '${slot.recipes.length} Piatti' : 'Vuoto', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: hasRecipes ? primaryGreen : kTextMuted)),
@@ -211,11 +208,9 @@ class _MealCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  
                   if (!hasRecipes)
-                    Text('Cosa si mangia oggi?', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: kTextMuted.withValues(alpha: 0.8)))
+                    Text('Cosa si mangia oggi?', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: kTextMuted.withOpacity(0.8)))
                   else
-                    // Genera un elenco di "pulsanti" interni per ogni piatto del pasto
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -235,7 +230,7 @@ class _MealCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: kBackgroundClear,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: primaryGreen.withValues(alpha: 0.2)),
+                              border: Border.all(color: primaryGreen.withOpacity(0.2)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,

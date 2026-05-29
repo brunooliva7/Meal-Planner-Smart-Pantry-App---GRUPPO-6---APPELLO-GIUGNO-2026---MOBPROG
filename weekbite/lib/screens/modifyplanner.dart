@@ -10,19 +10,29 @@ const Color kTextMuted = Color(0xFF9CA3AF);
 const Color kBorderColor = Color(0xFFF3F4F6); 
 const Color kBackgroundClear = Color(0xFFF9F9FB); 
 
-class CreateMealPlanScreen extends StatefulWidget {
-  const CreateMealPlanScreen({super.key});
+class EditMealPlanScreen extends StatefulWidget {
+  final String initialPlannerName;
+  final Map<String, List<String>> initialDayMealTypes;
+  final Map<String, Map<String, List<RecipeModel>>> initialAssociatedRecipes;
+
+  const EditMealPlanScreen({
+    super.key,
+    required this.initialPlannerName,
+    required this.initialDayMealTypes,
+    required this.initialAssociatedRecipes,
+  });
+
   @override
-  State<CreateMealPlanScreen> createState() => _CreateMealPlanScreenState();
+  State<EditMealPlanScreen> createState() => _EditMealPlanScreenState();
 }
 
-class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
-  final TextEditingController _plannerNameController = TextEditingController();
+class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
+  late TextEditingController _plannerNameController;
   final List<String> _days = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
   String _selectedDay = "Lunedì";
 
-  final Map<String, List<String>> _dayMealTypes = {};
-  final Map<String, Map<String, List<RecipeModel>>> _associatedRecipes = {};
+  late Map<String, List<String>> _dayMealTypes;
+  late Map<String, Map<String, List<RecipeModel>>> _associatedRecipes;
 
   final Map<String, String> _mealEmojis = {
     "COLAZIONE": "🥞", "PRANZO": "🍝", "SPUNTINO": "🍏", "MERENDA": "🧃", "CENA": "🥩", "ALTRO": "🍲"
@@ -38,14 +48,18 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   @override
   void initState() {
     super.initState();
-    for (var day in _days) {
-      _dayMealTypes[day] = ["COLAZIONE", "SPUNTINO", "PRANZO", "MERENDA", "CENA"];
-      _associatedRecipes[day] = {};
-      
-      for (var meal in _dayMealTypes[day]!) {
-        _associatedRecipes[day]![meal] = [];
-      }
-    }
+    _plannerNameController = TextEditingController(text: widget.initialPlannerName);
+    
+    _dayMealTypes = Map.from(widget.initialDayMealTypes.map(
+      (key, value) => MapEntry(key, List<String>.from(value)),
+    ));
+    
+    _associatedRecipes = widget.initialAssociatedRecipes.map((giorno, mappaPasti) {
+      final Map<String, List<RecipeModel>> mappaTipizzata = mappaPasti.map((pasto, listaRicette) {
+        return MapEntry<String, List<RecipeModel>>(pasto, List<RecipeModel>.from(listaRicette));
+      });
+      return MapEntry<String, Map<String, List<RecipeModel>>>(giorno, mappaTipizzata);
+    });
   }
 
   @override
@@ -61,9 +75,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text("Limite raggiunto", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-          content: Text("Non puoi aggiungere più di 10 pasti in un singolo giorno.", style: GoogleFonts.montserrat()),
+          content: Text("Non puoi superare i 10 pasti giornalieri.", style: GoogleFonts.montserrat()),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Ho capito", style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold)))
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK", style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold)))
           ],
         ),
       );
@@ -107,7 +121,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                   child: TextField(
                     controller: customNameController,
                     style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600),
-                    decoration: InputDecoration(hintText: "Es: Snack Notturno", border: InputBorder.none),
+                    decoration: InputDecoration(hintText: "Es: Spuntino Notturno", border: InputBorder.none),
                   ),
                 ),
               ]
@@ -149,21 +163,70 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     });
   }
 
-  void _showAddPiatoDialog(String mealType) {
+  // 📝 MODIFICA IN-LINE DI UN PIATTO ESISTENTE (Richiesta soddisfatta)
+  void _showEditPiattoDialog(String mealType, RecipeModel oldRecipe) {
+    final TextEditingController editPiattoController = TextEditingController(text: oldRecipe.title);
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Text("Modifica il piatto", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark)),
+        content: Container(
+          decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(14), border: Border.all(color: kBorderColor)),
+          child: TextField(
+            controller: editPiattoController,
+            autofocus: true,
+            style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), border: InputBorder.none),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext), 
+            child: Text("Annulla", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w600))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              String nuovoTitolo = editPiattoController.text.trim();
+              if (nuovoTitolo.isEmpty) return;
+              
+              int index = _associatedRecipes[_selectedDay]![mealType]!.indexOf(oldRecipe);
+              if (index != -1) {
+                setState(() {
+                  _associatedRecipes[_selectedDay]![mealType]![index] = RecipeModel(
+                    id: oldRecipe.id, // Mantiene lo stesso ID univoco
+                    title: nuovoTitolo,
+                    image: oldRecipe.image,
+                  );
+                });
+              }
+              Navigator.pop(dialogContext);
+            },
+            child: Text("Aggiorna", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddPiattoDialog(String mealType) {
     final TextEditingController piattoController = TextEditingController();
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: Text("Cosa inseriamo in $mealType?", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark)),
+        title: Text("Aggiungi un nuovo piatto", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark)),
         content: Container(
           decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(14), border: Border.all(color: kBorderColor)),
           child: TextField(
             controller: piattoController,
             autofocus: true,
             style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(hintText: "Es: Pasta al pomodoro", contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), border: InputBorder.none),
+            decoration: InputDecoration(hintText: "Nome piatto...", contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), border: InputBorder.none),
           ),
         ),
         actions: [
@@ -196,12 +259,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     });
   }
 
-  void _savePlannerToDatabase() {
+  void _updatePlannerInDatabase() {
     String name = _plannerNameController.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Dai un nome al piano alimentare!"), backgroundColor: Colors.redAccent));
-      return;
-    }
+    if (name.isEmpty) return;
 
     showDialog(
       context: context,
@@ -210,17 +270,18 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: Row(
           children: [
-            const Icon(Icons.check_circle, color: primaryGreen),
+            const Icon(Icons.update_rounded, color: primaryGreen),
             const SizedBox(width: 8),
-            Text("Salvato!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+            Text("Modifiche salvate!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text("Il planner '$name' è registrato nel Database.", style: GoogleFonts.montserrat()),
+        content: Text("Il planner '$name' è stato sovrascritto e aggiornato con successo.", style: GoogleFonts.montserrat()),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
             onPressed: () {
               Navigator.pop(dialogContext); 
+              Navigator.pop(context);       
             },
             child: const Text("Ottimo", style: TextStyle(color: Colors.white)),
           )
@@ -235,9 +296,24 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
 
     return Scaffold(
       backgroundColor: kBackgroundClear,
+      // 🛠️ LAYOUT OTTIMIZZATO: Bottone spostato nell'AppBar per massima visibilità
       appBar: AppBar(
-        title: Text("Nuovo Meal Planner", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w700, color: kTextDark)),
+        title: Text("Modifica Meal Planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark)),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: primaryGreen, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: TextButton.icon(
+              onPressed: _addNewMealSlot,
+              icon: const Icon(Icons.add_circle_outline_rounded, color: primaryGreen, size: 16),
+              label: Text("Pasto", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.w800, fontSize: 13)),
+            ),
+          )
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -256,7 +332,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     TextField(
                       controller: _plannerNameController,
                       style: GoogleFonts.montserrat(fontSize: 16, color: kTextDark, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(hintText: "Es: Dieta Definizione Estate 🏋️", hintStyle: GoogleFonts.montserrat(color: kTextMuted, fontSize: 14), border: InputBorder.none, isDense: true),
+                      decoration: InputDecoration(border: InputBorder.none, isDense: true),
                     ),
                   ],
                 ),
@@ -292,17 +368,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text("MENU DI $_selectedDay (${pastiDelGiorno.length}/10)", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.1)),
-                  TextButton.icon(
-                    onPressed: _addNewMealSlot,
-                    icon: const Icon(Icons.add_circle_outline_rounded, color: primaryGreen, size: 18),
-                    label: Text("Aggiungi Pasto", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.w700, fontSize: 13)),
-                  ),
-                ],
-              ),
+              Text("MENU DI $_selectedDay", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.1)),
               const SizedBox(height: 14),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
@@ -343,19 +409,28 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                       spacing: 8,
                                       runSpacing: 8,
                                       children: listRecipes.map((recipe) {
-                                        return Container(
-                                          padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-                                          decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.2))),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark)),
-                                              const SizedBox(width: 6),
-                                              GestureDetector(
-                                                onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)),
-                                                child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)),
-                                              ),
-                                            ],
+                                        return InkWell(
+                                          // 🛠️ MODIFICA AL TOCCO: Cliccando sul testo si edita, cliccando sulla X si elimina
+                                          onTap: () => _showEditPiattoDialog(mealType, recipe),
+                                          borderRadius: BorderRadius.circular(12),
+                                          child: Container(
+                                            padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+                                            decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.2))),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark)),
+                                                const SizedBox(width: 8),
+                                                GestureDetector(
+                                                  onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(2), 
+                                                    decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), 
+                                                    child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         );
                                       }).toList(),
@@ -363,7 +438,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                     const SizedBox(height: 12),
                                   ],
                                   InkWell(
-                                    onTap: () => _showAddPiatoDialog(mealType),
+                                    onTap: () => _showAddPiattoDialog(mealType),
                                     borderRadius: BorderRadius.circular(12),
                                     child: Container(
                                       width: double.infinity,
@@ -372,9 +447,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          const Icon(Icons.add_rounded, color: primaryGreen, size: 18),
+                                          const Icon(Icons.add_rounded, color: primaryGreen, size: 16),
                                           const SizedBox(width: 6),
-                                          Text("Aggiungi piatto...", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: primaryGreen)),
+                                          Text("Nuovo piatto...", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: primaryGreen)),
                                         ],
                                       ),
                                     ),
@@ -395,9 +470,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                 height: 54,
                 decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: primaryGreen.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))]),
                 child: ElevatedButton(
-                  onPressed: _savePlannerToDatabase,
+                  onPressed: _updatePlannerInDatabase,
                   style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-                  child: Text("Salva planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: Text("Conferma modifiche", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),
             ],
