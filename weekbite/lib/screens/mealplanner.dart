@@ -27,6 +27,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
   String? _selectedPlannerName;
   Map<String, List<String>> _dayMealTypes = {};
   Map<String, Map<String, List<RecipeModel>>> _associatedRecipes = {};
+  int _currentPlannerId = 0; // 🌟 Recuperiamo l'ID del planner corrente per la modifica
   
   bool _isLoading = true;
 
@@ -42,6 +43,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
 
   // 🟢 LOGICA DI CARICAMENTO DAL DATABASE SQLITE
   Future<void> _loadPlannerData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       // 1. Recuperiamo tutti i nomi dei planner salvati
@@ -58,6 +60,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
         // 2. Recuperiamo i dettagli completi del planner selezionato
         final completeData = await DatabaseHelper.instance.getPlannerComplete(_selectedPlannerName!);
         if (completeData != null) {
+          _currentPlannerId = completeData['id'] ?? 0; // 🌟 Salviamo l'ID
           _dayMealTypes = completeData['dayMealTypes'] as Map<String, List<String>>;
           _associatedRecipes = completeData['associatedRecipes'] as Map<String, Map<String, List<RecipeModel>>>;
         }
@@ -67,6 +70,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
         _selectedPlannerName = null;
         _dayMealTypes = {};
         _associatedRecipes = {};
+        _currentPlannerId = 0;
       }
     } catch (e) {
       print("Errore nel caricamento del meal planner: $e");
@@ -80,7 +84,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
   Future<void> _deleteCurrentPlanner() async {
     if (_selectedPlannerName == null) return;
     
-    // Per eliminare serve l'ID, lo prendiamo leggendo il planner
     final data = await DatabaseHelper.instance.getPlannerComplete(_selectedPlannerName!);
     if (data != null && data['id'] != null) {
       await DatabaseHelper.instance.deletePlanner(data['id'] as int);
@@ -138,6 +141,38 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          // 🌟 TASTO MODIFICA: Posizionato perfettamente in alto a sinistra nell'AppBar
+          child: Container(
+            decoration: const BoxDecoration(color: kBackgroundClear, shape: BoxShape.circle),
+            child: IconButton(
+              icon: const Icon(Icons.edit_note_rounded, size: 22, color: primaryGreen),
+              padding: EdgeInsets.zero,
+              onPressed: () async {
+                if (_currentPlannerId == 0) return;
+
+                // Navigazione verso la modifica passando tutti i dati strutturati richiesti
+                final bool? rinfrescaDati = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EditMealPlanScreen(
+                      plannerId: _currentPlannerId,
+                      initialPlannerName: _selectedPlannerName!,
+                      initialDayMealTypes: _dayMealTypes,
+                      initialAssociatedRecipes: _associatedRecipes,
+                    ),
+                  ),
+                );
+
+                // Se la pagina di modifica restituisce true, aggiorna la visualizzazione dal DB
+                if (rinfrescaDati == true) {
+                  _loadPlannerData();
+                }
+              },
+            ),
+          ),
+        ),
         title: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             value: _selectedPlannerName,
@@ -271,7 +306,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                                           children: listRecipes.map((recipe) {
                                             return InkWell(
                                               onTap: () {
-                                                // Navigazione verso il dettaglio (se id < 0 è inserito a mano, altrimenti viene dall'API)
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
