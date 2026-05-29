@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:translator/translator.dart'; // 🌍 Il pacchetto di traduzione
 
 // ==========================================================
-// ⚙️ STILE UFFICIALE EREDITATO DAL MAIN
+// ⚙️ STILE UFFICIALE
 // ==========================================================
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -23,8 +24,8 @@ class RecipeDetailScreen extends StatefulWidget {
 }
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
-  // STATO LOGIN
-  bool isUserLogged = true; 
+  // 🧪 LOGIN DI TEST (Metti false per provare gli avvisi)
+  bool isUserLogged = false; 
 
   late bool isDownloaded;
   late bool isFavorite;
@@ -34,6 +35,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool isLocalLoading = false; 
   final TextEditingController _notesController = TextEditingController();
   List<dynamic> ingredients = [];
+
+  // Variabili per la traduzione
+  bool isTranslating = false;
+  String translatedTitle = "";
 
   @override
   void initState() {
@@ -46,6 +51,52 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
     ingredients = widget.recipeData['extendedIngredients'] ?? widget.recipeData['ingredients'] ?? [];
     _notesController.text = widget.recipeData['personalNotes'] ?? "";
+    
+    translatedTitle = widget.recipeData['title'] ?? 'Senza Titolo';
+
+    // Se la ricetta viene da internet, avviamo la traduzione automatica!
+    if (widget.isFromApi) {
+      _translateContent();
+    } else {
+      // Se è locale, diamo per scontato che sia già in italiano
+      for (var ing in ingredients) {
+        ing['translatedName'] = ing['name'] ?? ing['originalName'];
+      }
+    }
+  }
+
+  // ==========================================================
+  // 🌍 TRADUTTORE LIVE (Titolo e Ingredienti)
+  // ==========================================================
+  Future<void> _translateContent() async {
+    setState(() => isTranslating = true);
+    final translator = GoogleTranslator();
+
+    try {
+      // 1. Traduce il titolo
+      var tTitle = await translator.translate(widget.recipeData['title'] ?? '', from: 'en', to: 'it');
+      translatedTitle = tTitle.text;
+
+      // 2. Traduce ogni singolo ingrediente
+      for (var ing in ingredients) {
+        String originalName = ing['name'] ?? ing['originalName'] ?? "";
+        if (originalName.isNotEmpty) {
+          var tIng = await translator.translate(originalName, from: 'en', to: 'it');
+          ing['translatedName'] = tIng.text;
+        } else {
+          ing['translatedName'] = "Ingrediente";
+        }
+      }
+    } catch (e) {
+      print("Errore di traduzione: $e");
+      for (var ing in ingredients) {
+        ing['translatedName'] = ing['name'];
+      }
+    }
+
+    if (mounted) {
+      setState(() => isTranslating = false);
+    }
   }
 
   double _getScaledAmount(double? originalAmount) {
@@ -53,11 +104,50 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     return (originalAmount / originalServings) * servings;
   }
 
-  void _downloadRecipe() {
-    setState(() {
-      isLocalLoading = true; 
-    });
+  // ==========================================================
+  // 📏 TRADUTTORE UNITA' DI MISURA
+  // ==========================================================
+  String _translateUnit(String unit) {
+    String u = unit.toLowerCase().trim();
+    if (u == 'tbsp' || u == 'tablespoon' || u == 'tablespoons') return 'cucchiai';
+    if (u == 'tsp' || u == 'teaspoon' || u == 'teaspoons') return 'cucchiaini';
+    if (u == 'cup' || u == 'cups' || u == 'c') return 'tazze';
+    if (u == 'oz' || u == 'ounce' || u == 'ounces') return 'once';
+    if (u == 'lb' || u == 'lbs' || u == 'pound' || u == 'pounds') return 'libbre';
+    if (u == 'clove' || u == 'cloves') return 'spicchi';
+    if (u == 'pinch' || u == 'pinches') return 'pizzico';
+    if (u == 'handful' || u == 'handfuls') return 'manciata';
+    if (u == 'slice' || u == 'slices') return 'fette';
+    if (u == 'can' || u == 'cans') return 'lattine';
+    if (u == 'servings' || u == 'serving') return 'porzioni';
+    return unit; 
+  }
 
+  void _showLoginWarning() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.lock_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                "Devi effettuare l'accesso per usare questa funzione!", 
+                style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _downloadRecipe() {
+    setState(() => isLocalLoading = true);
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (mounted) {
         setState(() {
@@ -66,7 +156,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Ricetta salvata nella tua dispensa!", style: GoogleFonts.montserrat()),
+            content: Text("Ricetta salvata in locale!", style: GoogleFonts.montserrat()),
             backgroundColor: primaryGreen,
           ),
         );
@@ -80,9 +170,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       backgroundColor: backgroundColor, 
       body: CustomScrollView(
         slivers: [
-          // ==========================================================
-          // IMMAGINE DI COPERTINA (PULITA)
-          // ==========================================================
+          // IMMAGINE DI COPERTINA
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
@@ -110,19 +198,28 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             ),
           ),
 
-          // ==========================================================
           // CORPO DELLA RICETTA
-          // ==========================================================
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.recipeData['title'] ?? 'Ricetta Senza Titolo',
-                    style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.black87),
-                  ),
+                  // TITOLO (Con animazione di caricamento traduzione)
+                  if (isTranslating)
+                    Row(
+                      children: [
+                        const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: primaryGreen, strokeWidth: 2)),
+                        const SizedBox(width: 12),
+                        Text("Traduzione in corso...", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold)),
+                      ],
+                    )
+                  else
+                    Text(
+                      translatedTitle,
+                      style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.black87),
+                    ),
+                  
                   const SizedBox(height: 12),
 
                   Row(
@@ -141,7 +238,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        isDownloaded ? "Offline" : "Solo Online",
+                        isDownloaded ? "Salvato Locale" : "Solo Online",
                         style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700]),
                       ),
                     ],
@@ -149,11 +246,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   const SizedBox(height: 24),
 
                   // ==========================================================
-                  // 🎛️ ZONA PULSANTI DI AZIONE UNIFICATI
+                  // 🎛️ ZONA PULSANTI DI AZIONE - (Layout Semplificato per evitare Overflow)
                   // ==========================================================
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // SELETTORE PERSONE
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.grey[100],
@@ -178,33 +276,36 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           ],
                         ),
                       ),
-
+                      
+                      // AZIONI: CUORE + SALVA (Testo accorciato per entrare in una sola riga)
                       Row(
                         children: [
-                          if (isUserLogged)
-                            Container(
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.grey[300]!),
-                              ),
-                              child: IconButton(
-                                icon: Icon(
-                                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                                  color: isFavorite ? primaryGreen : unselectedIconColor,
-                                  size: 22,
-                                ),
-                                onPressed: () => setState(() => isFavorite = !isFavorite),
-                              ),
+                          // TASTO PREFERITI
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.grey[300]!),
                             ),
+                            child: IconButton(
+                              icon: Icon(
+                                isFavorite ? Icons.favorite : Icons.favorite_border,
+                                color: isFavorite ? primaryGreen : unselectedIconColor,
+                                size: 22,
+                              ),
+                              onPressed: () {
+                                if (!isUserLogged) {
+                                  _showLoginWarning();
+                                } else {
+                                  setState(() => isFavorite = !isFavorite);
+                                }
+                              },
+                            ),
+                          ),
 
-                          if (!isUserLogged)
-                            Text(
-                              "Accedi per salvare", 
-                              style: GoogleFonts.montserrat(color: unselectedIconColor, fontSize: 12, fontWeight: FontWeight.w600)
-                            )
-                          else if (isLocalLoading)
+                          // TASTO SALVA / MODIFICA
+                          if (isLocalLoading)
                             ElevatedButton.icon(
                               onPressed: null, 
                               style: ElevatedButton.styleFrom(
@@ -217,11 +318,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                 height: 16,
                                 child: CircularProgressIndicator(color: primaryGreen, strokeWidth: 2),
                               ),
-                              label: Text("Scaricamento...", style: GoogleFonts.montserrat(color: Colors.grey)),
+                              label: Text("Salvataggio...", style: GoogleFonts.montserrat(color: Colors.grey)),
                             )
                           else if (!isDownloaded)
                             ElevatedButton.icon(
-                              onPressed: _downloadRecipe,
+                              onPressed: () {
+                                if (!isUserLogged) {
+                                  _showLoginWarning();
+                                } else {
+                                  _downloadRecipe();
+                                }
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryGreen, 
                                 foregroundColor: backgroundColor,
@@ -229,12 +336,18 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               ),
-                              icon: const Icon(Icons.download, size: 18),
-                              label: Text("Scarica", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+                              icon: const Icon(Icons.save_alt, size: 18),
+                              label: Text("Salva", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), // <-- TESTO ACCORCIATO!
                             )
                           else
                             OutlinedButton.icon(
-                              onPressed: () {},
+                              onPressed: () {
+                                if (!isUserLogged) {
+                                  _showLoginWarning();
+                                } else {
+                                  // Azione di modifica
+                                }
+                              },
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: primaryGreen, width: 2),
                                 foregroundColor: primaryGreen,
@@ -251,7 +364,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   const Divider(height: 48, color: Colors.black12),
 
                   // ==========================================================
-                  // LISTA INGREDIENTI CON CONVERSIONE IN SISTEMA METRICO EUROPEO
+                  // LISTA INGREDIENTI
                   // ==========================================================
                   Text(
                     "Ingredienti",
@@ -259,7 +372,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  if (ingredients.isEmpty)
+                  if (isTranslating)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: CircularProgressIndicator(color: primaryGreen),
+                      ),
+                    )
+                  else if (ingredients.isEmpty)
                     Text("Nessun ingrediente trovato.", style: GoogleFonts.montserrat(color: unselectedIconColor))
                   else
                     ListView.builder(
@@ -269,23 +389,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       itemBuilder: (context, index) {
                         final ing = ingredients[index];
                         
-                        // 🌍 LOGICA PER MISURAZIONI EUROPEE
                         double originalAmount = 0.0;
-                        String unit = "";
+                        String originalUnit = "";
 
-                        // Se l'API ci fornisce i dati metrici (Grammi, ml, cucchiai standard europei) li usiamo
+                        // Sistema Metrico Europeo
                         if (ing['measures'] != null && ing['measures']['metric'] != null) {
                           originalAmount = ing['measures']['metric']['amount']?.toDouble() ?? 0.0;
-                          unit = ing['measures']['metric']['unitShort'] ?? "";
+                          originalUnit = ing['measures']['metric']['unitShort'] ?? "";
                         } else {
-                          // Se la ricetta è locale o non ha dati metrici, usiamo quelli di base
                           originalAmount = ing['amount']?.toDouble() ?? 0.0;
-                          unit = ing['unit'] ?? "";
+                          originalUnit = ing['unit'] ?? "";
                         }
 
-                        // Applichiamo il ricalcolo per il numero di persone
+                        String translatedUnit = _translateUnit(originalUnit);
                         double currentAmount = _getScaledAmount(originalAmount);
-                        String name = ing['name'] ?? ing['originalName'] ?? "Ingrediente";
+                        
+                        // Prendiamo il nome tradotto da Google!
+                        String name = ing['translatedName'] ?? "Ingrediente";
 
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -304,7 +424,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                 ),
                               ),
                               Text(
-                                currentAmount > 0 ? "${currentAmount.toStringAsFixed(1)} $unit" : "",
+                                currentAmount > 0 ? "${currentAmount.toStringAsFixed(1)} $translatedUnit" : "",
                                 style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: primaryGreen),
                               ),
                             ],

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Gestione della persistenza locale
+import 'package:translator/translator.dart'; // 🌍 Pacchetto per la traduzione automatica dei titoli
 import 'search_screen.dart';
-import 'recipe.dart';
-import 'dispensa.dart'; // Importazione della schermata della dispensa del tuo gruppo
+import 'recipe.dart'; // Importazione corretta per la schermata di dettaglio del tuo progetto
 
 // COLORI UFFICIALI DEL GRUPPO EREDITATI DAL MAIN
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
@@ -20,7 +20,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0; // Gestisce l'indice della barra di navigazione inferiore
   bool isUserLogged = false; // Se impostato su true, mostra le liste orizzontali in alto
   List recipes = [];
   bool isLoading = true;
@@ -43,29 +42,27 @@ class _MainScreenState extends State<MainScreen> {
       String todayStr = DateTime.now().toString().split(' ')[0];
 
       if (cachedRecipesStr != null && lastFetchDate == todayStr) {
-        // DATI PREGRESSI TROVATI: Carica istantaneamente dalla memoria del telefono
+        // DATI PREGRESSI TROVATI: Carica istantaneamente dalla memoria (già tradotti in italiano!)
         if (mounted) {
           setState(() {
             recipes = json.decode(cachedRecipesStr);
             isLoading = false;
           });
         }
-        print("🎉 Ricette di oggi caricate localmente dalla cache (0 token consumati)");
+        print("🎉 Ricette di oggi caricate in italiano dalla cache (0 token consumati)");
       } else {
-        // NESSUN DATO O CACHE SCADUTA: Effettua la richiesta API reale
+        // NESSUN DATO O CACHE SCADUTA: Effettua la richiesta API reale e la traduce
         _fetchViralRecipesAndCache(todayStr);
       }
     } catch (e) {
-      // In caso di eccezione imprevista con SharedPreferences, tenta comunque la chiamata di rete
       String todayStr = DateTime.now().toString().split(' ')[0];
       _fetchViralRecipesAndCache(todayStr);
     }
   }
 
-  // VERA CHIAMATA API DI RETE A SPOONACULAR
+  // VERA CHIAMATA API DI RETE A SPOONACULAR + TRADUTTORE LIVE AUTOMATICO
   Future<void> _fetchViralRecipesAndCache(String todayDate) async {
     const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174'; 
-    // Usiamo l'endpoint random filtrando per cucina italiana per massimizzare la pertinenza dei testi
     const url = 'https://api.spoonacular.com/recipes/random?number=30&tags=italian&apiKey=$apiKey';
 
     try {
@@ -75,7 +72,24 @@ class _MainScreenState extends State<MainScreen> {
         final data = json.decode(response.body);
         List fetchedRecipes = data['recipes'] ?? [];
 
-        // Scrittura dei dati nella memoria permanente del dispositivo
+        // 🌍 LOGICA DI TRADUZIONE SIMULTANEA DEI 30 TITOLI DELLE CARD
+        final translator = GoogleTranslator();
+        
+        // Eseguiamo tutte le traduzioni in parallelo per non rallentare l'avvio
+        await Future.wait(fetchedRecipes.map((recipe) async {
+          String originalTitle = recipe['title'] ?? '';
+          if (originalTitle.isNotEmpty) {
+            try {
+              var translation = await translator.translate(originalTitle, from: 'en', to: 'it');
+              recipe['title'] = translation.text; // Sovrascriviamo il titolo inglese con quello italiano
+            } catch (e) {
+              print("Errore traduzione titolo singolo: $e");
+              // In caso di micro-errore, mantiene il titolo originale senza bloccarsi
+            }
+          }
+        }));
+
+        // Scrittura dei dati già tradotti nella memoria permanente del dispositivo
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_viral_recipes', json.encode(fetchedRecipes));
         await prefs.setString('last_viral_fetch_date', todayDate);
@@ -86,30 +100,34 @@ class _MainScreenState extends State<MainScreen> {
             isLoading = false;
           });
         }
-        print("📡 Nuove ricette scaricate con successo dall'API e salvate localmente!");
+        print("📡 Nuove ricette scaricate, TRADOTTE in italiano e salvate localmente!");
       } else {
-        // Stampa dettagliata dell'errore nella console di debug se il server rifiuta la chiamata (Es. Errore 402 Quota)
-        print("ERRORE RISPOSTA API: Codice ${response.statusCode}");
-        print("DETTAGLI DEL SERVER: ${response.body}");
+        print("🔴 ERRORE RISPOSTA API: Codice ${response.statusCode}");
         if (mounted) setState(() => isLoading = false);
       }
     } catch (e) {
-      print("ECCEZIONE DURANTE LA RICHIESTA DI RETE: $e");
+      print("🔴 ECCEZIONE DURANTE LA RICHIESTA DI RETE: $e");
       if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // SMISTATORE DEL CORPO PAGINA IN BASE ALL'ICONA SELEZIONATA
-  Widget _buildBody() {
-    switch (_selectedIndex) {
-      case 0:
-        // SCHERMATA PRINCIPALE (Ricette con Barra di ricerca e griglia)
-        return Column(
+  @override
+  Widget build(BuildContext context) {
+    // Scaffold pulito che fa da Material Container integrato con il BaseLayout del main.dart
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
           children: [
+            // 1. BARRA DI RICERCA FISSA IN ALTO
             _buildSearchBar(context),
+
+            // 2. CORPO SCORREVOLE
             Expanded(
               child: CustomScrollView(
                 slivers: [
+                  // SEZIONE UTENTE LOGGATO
                   if (isUserLogged) ...[
                     SliverToBoxAdapter(
                       child: Padding(
@@ -128,6 +146,7 @@ class _MainScreenState extends State<MainScreen> {
                     SliverToBoxAdapter(child: _buildHorizontalList()), 
                   ],
 
+                  // TITOLO RICETTE VIRALI
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -135,80 +154,18 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
 
+                  // 3. LA GRIGLIA DELL'API (ORA COMPLETAMENTE TRADOTTA)
                   _buildApiSliverGrid(),
                 ],
               ),
             ),
           ],
-        );
-      case 1:
-        // Navigazione nativa verso la schermata della Dispensa del vostro team
-        return const DispensaScreen(); 
-      case 2:
-        return Center(child: Text("Aggiungi Ricetta", style: GoogleFonts.montserrat(fontSize: 18)));
-      case 3:
-        return Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 18)));
-      case 4:
-        return Center(child: Text("Profilo Utente", style: GoogleFonts.montserrat(fontSize: 18)));
-      default:
-        return Container();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor, 
-      body: SafeArea(
-        bottom: false, 
-        child: _buildBody(), // Il corpo si aggiorna dinamicamente al cambio di scheda
-      ),
-
-      // BOTTOM BAR MINIMALE FLUTTUANTE
-      extendBody: true,
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          margin: const EdgeInsets.only(left: 36, right: 36, bottom: 12), 
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), 
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(40), 
-            boxShadow: const [
-              BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5)),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildNavItem(Icons.home_filled, 0),
-              _buildNavItem(Icons.kitchen, 1),
-              _buildNavItem(Icons.add_box_outlined, 2, size: 28), 
-              _buildNavItem(Icons.calendar_month, 3),
-              _buildNavItem(Icons.person_outline, 4),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
-    bool isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index; 
-        });
-      },
-      behavior: HitTestBehavior.opaque, 
-      child: Icon(
-        icon,
-        size: size,
-        color: isSelected ? primaryGreen : unselectedIconColor,
-      ),
-    );
-  }
-
+  // --- COSTRUTTORE DELLA BARRA DI RICERCA ---
   Widget _buildSearchBar(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
@@ -236,6 +193,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // --- COSTRUTTORE DELLE LISTE ORIZZONTALI ---
   Widget _buildHorizontalList() {
     return SizedBox(
       height: 160,
@@ -289,6 +247,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // --- COSTRUTTORE DELLA GRIGLIA VERTICALE SLIVER ---
   Widget _buildApiSliverGrid() {
     if (isLoading) {
       return const SliverToBoxAdapter(
@@ -309,7 +268,7 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 100), 
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 30), 
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
@@ -327,7 +286,6 @@ class _MainScreenState extends State<MainScreen> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
                 onTap: () {
-                  // Spinge la schermata di dettaglio passando la mappa completa e attivando le logiche API
                   Navigator.push(
                     context,
                     MaterialPageRoute(
