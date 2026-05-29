@@ -81,16 +81,15 @@ class _BaseLayoutState extends State<BaseLayout> {
   // 🔴 VARIABILE PER CONTROLLARE SE L'UTENTE È LOGGATO
   bool isUserLogged = false;
 
-  // ==========================================================
-  // 📄 LE TUE SCHERMATE (QUI SOSTITUIRAI CON I TUOI FILE)
-  // ==========================================================
-  static final List<Widget> _pages = <Widget>[
-    const MainScreen(),
-    Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
-    Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
-    const DispensaScreen(),
-    const UserProfileScreen(),
-  ];
+    List<Widget> _getPages() {
+      return [
+        MainScreen(isLogged: isUserLogged), // Passa lo stato di login reale!
+        Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
+        Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
+        const DispensaScreen(),
+        const UserProfileScreen(),
+      ];
+    }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -108,7 +107,7 @@ class _BaseLayoutState extends State<BaseLayout> {
       // extendBody permette al contenuto di scorrere DIETRO la bottom bar fluttuante
       extendBody: true, 
       
-      body: _pages[_selectedIndex],
+      body: _getPages()[_selectedIndex],
       
       // BOTTOM BAR SUPER-MINIMALE
       bottomNavigationBar: SafeArea(

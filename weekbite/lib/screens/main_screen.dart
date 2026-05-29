@@ -5,139 +5,178 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:translator/translator.dart'; 
 import 'search_screen.dart';
 import 'recipe.dart'; 
-import '../database/database_helper.dart'; // 📂 Importazione del nuovo Database SQLite
-
-const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
-const Color backgroundColor = Colors.white;
-const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
+import '../database/database_helper.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  // 🟢 Riceve lo stato di login direttamente dal layout principale
+  final bool isLogged;
+
+  const MainScreen({super.key, this.isLogged = false});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
-  bool isUserLogged = false; 
-  List recipes = [];
-  bool isLoading = true;
+  List viralRecipes = [];
+  List favoriteRecipes = [];
+  List pantryRecipes = [];
+  
+  bool isLoadingViral = true;
+  bool isLoadingPantry = true;
+  bool isLoadingFavorites = true;
 
   @override
   void initState() {
     super.initState();
-    _loadLocalOrFetchViralRecipes();
+    _refreshAllData();
   }
 
-  // LOGICA DI CONTROLLO TRAMITE DATABASE SQLITE
-  Future<void> _loadLocalOrFetchViralRecipes() async {
-    try {
-      String todayStr = DateTime.now().toString().split(' ')[0];
-      
-      // Cerchiamo la cache all'interno della tabella SQLite
-      List<dynamic> cachedRecipes = await DatabaseHelper.instance.getViralCache(todayStr);
-
-      if (cachedRecipes.isNotEmpty) {
-        // Cache valida trovata nel DB
-        if (mounted) {
-          setState(() {
-            recipes = cachedRecipes;
-            isLoading = false;
-          });
-        }
-        print("🎉 Ricette virali caricate dal Database SQLite locale (0 token consumati)");
-      } else {
-        // Tabella vuota o data scaduta: scarica nuove ricette
-        _fetchViralRecipesAndCache(todayStr);
-      }
-    } catch (e) {
-      String todayStr = DateTime.now().toString().split(' ')[0];
-      _fetchViralRecipesAndCache(todayStr);
+  // Caricamento condizionale: carica i dati personali solo se l'utente è loggato
+  Future<void> _refreshAllData() async {
+    await _loadViralRecipes();
+    if (widget.isLogged) {
+      await _loadUserFavorites();
+      await _loadPantryBasedRecipes();
     }
   }
 
-  Future<void> _fetchViralRecipesAndCache(String todayDate) async {
-    const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174'; 
-    const url = 'https://api.spoonacular.com/recipes/random?number=30&tags=italian&apiKey=$apiKey';
-
+  // 1. CARICAMENTO PREFERITI
+  Future<void> _loadUserFavorites() async {
+    setState(() => isLoadingFavorites = true);
     try {
-      final response = await http.get(Uri.parse(url));
+      final allFavs = await DatabaseHelper.instance.getAllFavorites();
+      if (mounted) {
+        setState(() {
+          favoriteRecipes = allFavs.take(5).toList();
+          isLoadingFavorites = false;
+        });
+      }
+    } catch (e) {
+      print("Errore preferiti: $e");
+      if (mounted) setState(() => isLoadingFavorites = false);
+    }
+  }
+
+  // 2. CARICAMENTO DISPENSA TRAMITE API
+  Future<void> _loadPantryBasedRecipes() async {
+    setState(() => isLoadingPantry = true);
+    try {
+      // Simulazione ingredienti reali dell'utente
+      List<String> myIngredients = ['tomato', 'pasta', 'cheese']; 
       
+      if (myIngredients.isEmpty) {
+        setState(() => isLoadingPantry = false);
+        return;
+      }
+
+      final ingredientsQuery = myIngredients.join(',');
+      const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
+      final url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientsQuery&number=5&apiKey=$apiKey';
+
+      final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        List fetchedRecipes = data['recipes'] ?? [];
-
-        final translator = GoogleTranslator();
+        final List data = json.decode(response.body);
         
-        await Future.wait(fetchedRecipes.map((recipe) async {
-          String originalTitle = recipe['title'] ?? '';
-          if (originalTitle.isNotEmpty) {
-            try {
-              var translation = await translator.translate(originalTitle, from: 'en', to: 'it');
-              recipe['title'] = translation.text; 
-            } catch (e) {
-              print("Errore traduzione: $e");
-            }
-          }
-        }));
-
-        // SALVATAGGIO NELLA TABELLA SQLITE CACHE
-        await DatabaseHelper.instance.saveViralCache(fetchedRecipes, todayDate);
+        final translator = GoogleTranslator();
+        for (var recipe in data) {
+          var translation = await translator.translate(recipe['title'], from: 'en', to: 'it');
+          recipe['title'] = translation.text;
+        }
 
         if (mounted) {
           setState(() {
-            recipes = fetchedRecipes;
-            isLoading = false;
+            pantryRecipes = data;
+            isLoadingPantry = false;
           });
         }
-        print("📡 Nuove ricette salvate nella cache SQLite con successo!");
-      } else {
-        print("🔴 Errore risposta API: ${response.statusCode}");
-        if (mounted) setState(() => isLoading = false);
       }
     } catch (e) {
-      print("🔴 Eccezione di rete: $e");
-      if (mounted) setState(() => isLoading = false);
+      print("Errore API Dispensa: $e");
+      if (mounted) setState(() => isLoadingPantry = false);
+    }
+  }
+
+  // 3. CARICAMENTO RICETTE VIRALI (Cache locale quotidiana)
+  Future<void> _loadViralRecipes() async {
+    String todayStr = DateTime.now().toString().split(' ')[0];
+    List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr);
+
+    if (cached.isNotEmpty) {
+      setState(() {
+        viralRecipes = cached;
+        isLoadingViral = false;
+      });
+    } else {
+      _fetchViralFromApi(todayStr);
+    }
+  }
+
+  Future<void> _fetchViralFromApi(String date) async {
+    const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
+    final url = 'https://api.spoonacular.com/recipes/random?number=30&tags=italian&apiKey=$apiKey';
+    
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        List fetched = data['recipes'] ?? [];
+        
+        final translator = GoogleTranslator();
+        for (var r in fetched) {
+          var trans = await translator.translate(r['title'], from: 'en', to: 'it');
+          r['title'] = trans.text;
+        }
+
+        await DatabaseHelper.instance.saveViralCache(fetched, date);
+        if (mounted) setState(() { viralRecipes = fetched; isLoadingViral = false; });
+      }
+    } catch (e) {
+       if (mounted) setState(() => isLoadingViral = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: backgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _buildSearchBar(context),
+            _buildSearchBar(context, theme),
             Expanded(
-              child: CustomScrollView(
-                physics: const ClampingScrollPhysics(),
-                slivers: [
-                  if (isUserLogged) ...[
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        child: Text("I tuoi Preferiti", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: RefreshIndicator(
+                onRefresh: _refreshAllData,
+                color: theme.colorScheme.primary,
+                child: CustomScrollView(
+                  slivers: [
+                    
+                    // 🟢 SEZIONE CONDIZIONALE: Compare solo se l'utente è loggato
+                    if (widget.isLogged) ...[
+                      // Sezione Preferiti
+                      _buildSectionHeader("I tuoi Preferiti", theme),
+                      SliverToBoxAdapter(
+                        child: isLoadingFavorites 
+                          ? const Center(child: CircularProgressIndicator()) 
+                          : _buildHorizontalList(favoriteRecipes, false),
                       ),
-                    ),
-                    SliverToBoxAdapter(child: _buildHorizontalList()), 
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        child: Text("In base alla tua Dispensa", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold)),
+
+                      // Sezione Dispensa
+                      _buildSectionHeader("In base alla tua Dispensa", theme),
+                      SliverToBoxAdapter(
+                        child: isLoadingPantry 
+                          ? const Center(child: CircularProgressIndicator()) 
+                          : _buildHorizontalList(pantryRecipes, true),
                       ),
-                    ),
-                    SliverToBoxAdapter(child: _buildHorizontalList()), 
+                    ],
+
+                    // 🌍 SEZIONE SEMPRE VISIBILE: Ricette virali del giorno
+                    _buildSectionHeader("Esplora Ricette Virali", theme, isLarge: true),
+                    _buildApiSliverGrid(theme),
                   ],
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                      child: Text("Esplora Ricette Virali", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  _buildApiSliverGrid(),
-                ],
+                ),
               ),
             ),
           ],
@@ -146,26 +185,39 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildSearchBar(BuildContext context) {
+  Widget _buildSectionHeader(String title, ThemeData theme, {bool isLarge = false}) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, isLarge ? 24 : 16, 16, 12),
+        child: Text(
+          title,
+          style: GoogleFonts.montserrat(
+            fontSize: isLarge ? 20 : 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(BuildContext context, ThemeData theme) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12, left: 16, right: 16, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(30),
-        onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen()));
-        },
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.grey[100], 
+            color: Colors.grey[100],
             borderRadius: BorderRadius.circular(30),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
           ),
           child: Row(
             children: [
-              const Icon(Icons.search, color: primaryGreen, size: 20), 
+              Icon(Icons.search, color: theme.colorScheme.primary, size: 22),
               const SizedBox(width: 12),
-              Text('Cerca ricette o ingredienti...', style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 15)),
+              Text('Cerca ricette o ingredienti...', 
+                style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 15)),
             ],
           ),
         ),
@@ -173,52 +225,48 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildHorizontalList() {
+  Widget _buildHorizontalList(List list, bool isFromApi) {
+    if (list.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text("Ancora nulla qui...", style: GoogleFonts.montserrat(color: Colors.grey)),
+      );
+    }
+
     return SizedBox(
-      height: 160,
+      height: 170,
       child: ListView.builder(
-        scrollDirection: Axis.horizontal, 
+        scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 5,
+        itemCount: list.length,
         itemBuilder: (context, index) {
-          final mockLocalRecipe = {
-            "id": 999 + index,
-            "title": "Ricetta Preferita #${index + 1}",
-            "image": "https://via.placeholder.com/400x300",
-            "readyInMinutes": 25,
-            "servings": 4,
-            "extendedIngredients": [
-              {"name": "ingrediente prova 1", "amount": 200.0, "unit": "g"}
-            ],
-            "isFavorite": true,
-            "personalNotes": "Annotazione locale di prova."
-          };
+          final recipe = list[index];
           return Container(
-            width: 130,
-            margin: const EdgeInsets.only(right: 12), 
+            width: 150,
+            margin: const EdgeInsets.only(right: 12),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => RecipeDetailScreen(recipeData: mockLocalRecipe, isFromApi: false)));
-              },
-              child: Card(
-                color: Colors.white,
-                elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 90,
-                      decoration: BoxDecoration(color: Colors.grey[200], borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
-                      child: Center(child: Icon(Icons.restaurant, color: primaryGreen.withOpacity(0.5))),
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Image.network(
+                      recipe['image'] ?? 'https://via.placeholder.com/150',
+                      height: 100,
+                      width: 150,
+                      fit: BoxFit.cover,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(mockLocalRecipe["title"] as String, maxLines: 2, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600)),
-                    )
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    recipe['title'] ?? 'Senza titolo',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ),
           );
@@ -227,47 +275,39 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildApiSliverGrid() {
-    if (isLoading) {
-      return const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.only(top: 50.0), child: Center(child: CircularProgressIndicator(color: primaryGreen))));
+  Widget _buildApiSliverGrid(ThemeData theme) {
+    if (isLoadingViral) {
+      return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
     }
     return SliverPadding(
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 30), 
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.8),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 0.75),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
-            final recipe = recipes[index];
-            return Card(
-              color: Colors.white,
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => RecipeDetailScreen(recipeData: recipe, isFromApi: true)));
-                },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                          image: DecorationImage(image: NetworkImage(recipe['image'] ?? 'https://via.placeholder.com/150'), fit: BoxFit.cover),
-                        ),
-                      ),
+            final recipe = viralRecipes[index];
+            return InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: true))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.network(recipe['image'], fit: BoxFit.cover),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(recipe['title'] ?? 'Senza Titolo', maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(recipe['title'], maxLines: 2, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
+                ],
               ),
             );
           },
-          childCount: recipes.length, 
+          childCount: viralRecipes.length,
         ),
       ),
     );
