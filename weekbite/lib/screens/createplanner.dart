@@ -29,32 +29,11 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     "COLAZIONE": "🥞", "PRANZO": "🍝", "SPUNTINO": "🍏", "MERENDA": "🧃", "CENA": "🥩", "ALTRO": "🍲"
   };
 
-  // 💡 POOL DI SUGGERIMENTI ESPANSO: Varietà di piatti per simulare una vera chiamata API
   final Map<String, List<String>> _suggestionsPool = {
-    "colazione": [
-      "Pancakes allo sciroppo d'acero", "Porridge d'avena con frutti di bosco", 
-      "Yogurt greco con muesli e miele", "Toast con avocado e uovo in camicia",
-      "Cornetto integrale e cappuccino", "Smoothie bowl alla banana e cacao",
-      "Omelette dolce di albumi e marmellata", "Waffle leggeri con fragole fresche"
-    ],
-    "pranzo": [
-      "Pasta aglio, olio e peperoncino", "Risotto cremoso ai funghi porcini", 
-      "Gnocchi di patate al pomodoro e basilico", "Insalata di quinoa con verdure grigliate",
-      "Spaghetti alla carbonara vegetariana", "Piadina salmone e philadelphia",
-      "Riso venere con gamberetti e zucchine", "Couscous di pollo ed erbette aromatiche"
-    ],
-    "cena": [
-      "Petto di pollo alla piastra con asparagi", "Filetto di orata al cartoccio con patate", 
-      "Frittata alta al forno con spinaci", "Salmone scottato al sesamo con broccoli",
-      "Zuppa tiepida di legumi e crostini", "Hamburger di tacchino in piatto con insalata",
-      "Vellutata di zucca e ceci croccanti", "Bocconcini di tofu saltati con verdure wok"
-    ],
-    "snack": [
-      "Frutta fresca di stagione", "Barretta proteica ai cereali", 
-      "Una manciata di mandorle e noci", "Gallette di riso con burro d'arachidi",
-      "Hummus di ceci con bastoncini di carota", "Yogurt magro alla vaniglia",
-      "Parmigiano Reggiano a cubetti", "Cioccolato fondente 85% (due quadratini)"
-    ]
+    "colazione": ["Pancakes allo sciroppo", "Porridge d'avena", "Yogurt greco con muesli", "Toast con avocado"],
+    "pranzo": ["Pasta aglio, olio e peperoncino", "Risotto ai funghi", "Gnocchi al pomodoro", "Insalata di quinoa"],
+    "cena": ["Petto di pollo e verdure", "Filetto di orata al cartoccio", "Frittata al forno", "Vellutata di zucca"],
+    "snack": ["Frutta fresca", "Barretta proteica", "Manciata di noci", "Gallette di riso"]
   };
 
   @override
@@ -63,7 +42,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     for (var day in _days) {
       _dayMealTypes[day] = ["COLAZIONE", "SPUNTINO", "PRANZO", "MERENDA", "CENA"];
       _associatedRecipes[day] = {};
-      
       for (var meal in _dayMealTypes[day]!) {
         _associatedRecipes[day]![meal] = [];
       }
@@ -173,7 +151,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => customNameController.dispose()); // 🛠️ Corretto: Il controller viene disattivato in sicurezza alla chiusura
+    ).then((_) => customNameController.dispose());
   }
 
   void _removeMealSlot(String mealType) {
@@ -183,13 +161,18 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     });
   }
 
-  // 🛠️ BOTTOM SHEET AGGIORNATO CON COSTRUTTORI ESPANSI (Niente più eccezioni di layout)
   void _showAddPiatoDialog(String mealType) async {
-    final db = await DatabaseHelper.instance.database;
-    final List<Map<String, dynamic>> savedRecipesDB = await db.query('saved_recipes');
+    List<Map<String, dynamic>> savedRecipesDB = [];
+    
+    // Protezione per evitare il crash bloccante se testato su Edge/Web
+    try {
+      final db = await DatabaseHelper.instance.database;
+      savedRecipesDB = await db.query('saved_recipes');
+    } catch (_) {
+      savedRecipesDB = []; 
+    }
 
     if (!mounted) return;
-
     final TextEditingController piattoController = TextEditingController();
 
     showModalBottomSheet(
@@ -234,8 +217,11 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     if (t.isEmpty) return;
                     Navigator.pop(bottomSheetContext); 
                     setState(() {
+                      // 💡 ID NEGATIVO: Se inserito a mano, generiamo un ID negativo basato sul timestamp.
+                      // Servirà nella pagina di riepilogo per capire che NON è una ricetta locale
+                      // e che cliccandoci sopra bisognerà lanciare la ricerca testuale sulle API.
                       _associatedRecipes[_selectedDay]![mealType]!.add(
-                        RecipeModel(id: DateTime.now().millisecondsSinceEpoch, title: t, image: "")
+                        RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: t, image: "")
                       );
                     });
                   },
@@ -248,11 +234,10 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             Text("Oppure scegli dalle tue Ricette Salvate:", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: kTextMuted)),
             const SizedBox(height: 12),
 
-            // 🛠️ RISOLUZIONE DEL CRASH: ListView avvolta in Expanded per confinarne le dimensioni verticali
             Expanded(
               child: savedRecipesDB.isEmpty
                 ? Center(
-                    child: Text("Non hai ancora salvato nessuna ricetta.\nEsplora l'app per salvarne qualcuna!", textAlign: TextAlign.center, style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 13)),
+                    child: Text("Nessuna ricetta salvata localmente.\nUsa la ricerca dell'app per scaricarne alcune!", textAlign: TextAlign.center, style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 13)),
                   )
                 : ListView.builder(
                     itemCount: savedRecipesDB.length,
@@ -268,11 +253,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: recipe['image'] != null && recipe['image'].toString().isNotEmpty 
-                                ? Image.network(
-                                    recipe['image'],
-                                    width: 46, height: 46, fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(width: 46, height: 46, color: Colors.grey[300], child: const Icon(Icons.restaurant, color: Colors.white)),
-                                  ) 
+                                ? Image.network(recipe['image'], width: 46, height: 46, fit: BoxFit.cover)
                                 : Container(width: 46, height: 46, color: Colors.grey[300], child: const Icon(Icons.restaurant, color: Colors.white)),
                           ),
                           title: Text(recipe['title'] ?? 'Senza Titolo', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: kTextDark)),
@@ -280,6 +261,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                           onTap: () {
                             Navigator.pop(bottomSheetContext);
                             setState(() {
+                              // 💡 ID REALE POSITIVO: Mantiene l'ID del database delle ricette scaricate
                               _associatedRecipes[_selectedDay]![mealType]!.add(
                                 RecipeModel(
                                   id: recipe['id'], 
@@ -297,7 +279,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => piattoController.dispose()); // Rilascia le risorse in sicurezza
+    ).then((_) => piattoController.dispose());
   }
 
   void _suggestRecipeFromApi(String mealType) {
@@ -315,19 +297,17 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     String name = _plannerNameController.text.trim();
     
     if (name.isEmpty) {
-      _showErrorDialog("Attenzione", "Devi inserire un nome per il tuo piano alimentare! (es. Dieta Estiva)");
-      return;
-    }
-
-    List<String> existingNames = await DatabaseHelper.instance.getAllPlannerNames();
-    bool isDuplicate = existingNames.any((n) => n.toLowerCase() == name.toLowerCase());
-    
-    if (isDuplicate) {
-      _showErrorDialog("Nome Duplicato", "Esiste già un planner chiamato '$name'. Scegli un nome diverso per evitare sovrascritture accidentali.");
+      _showErrorDialog("Attenzione", "Devi inserire un nome per il tuo piano alimentare!");
       return;
     }
 
     try {
+      List<String> existingNames = await DatabaseHelper.instance.getAllPlannerNames();
+      if (existingNames.any((n) => n.toLowerCase() == name.toLowerCase())) {
+        _showErrorDialog("Nome Duplicato", "Esiste già un planner chiamato '$name'.");
+        return;
+      }
+
       await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes);
 
       if (!mounted) return;
@@ -343,7 +323,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               Text("Salvato!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
             ],
           ),
-          content: Text("Il planner '$name' è stato registrato con successo nel Database locale.", style: GoogleFonts.montserrat()),
+          content: Text("Il planner '$name' è stato registrato nel Database.", style: GoogleFonts.montserrat()),
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
@@ -357,7 +337,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         ),
       );
     } catch (e) {
-      _showErrorDialog("Errore di Salvataggio", "Si è verificato un problema nel salvare il planner: $e");
+      _showErrorDialog("Errore", "Impossibile salvare su questo dispositivo/ambiente: $e");
     }
   }
 
@@ -476,29 +456,16 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                       runSpacing: 8,
                                       children: listRecipes.map((recipe) {
                                         return Container(
-                                          // 🔴 AGGIUNTA: Forza il contenitore a non essere mai più largo dello schermo (meno i margini)
-                                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 80),
                                           padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
                                           decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.2))),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              // 🔴 AGGIUNTA: Flexible permette al testo di restringersi invece di spingere fuori la X
-                                              Flexible(
-                                                child: Text(
-                                                  recipe.title, 
-                                                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark),
-                                                  overflow: TextOverflow.ellipsis, // Mette i "..." se il testo è troppo lungo
-                                                ),
-                                              ),
+                                              Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark)),
                                               const SizedBox(width: 6),
                                               GestureDetector(
                                                 onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)),
-                                                child: Container(
-                                                  padding: const EdgeInsets.all(2), 
-                                                  decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), 
-                                                  child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)
-                                                ),
+                                                child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)),
                                               ),
                                             ],
                                           ),
