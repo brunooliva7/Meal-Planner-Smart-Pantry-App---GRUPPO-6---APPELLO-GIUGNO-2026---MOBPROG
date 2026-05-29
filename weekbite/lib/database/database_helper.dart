@@ -303,13 +303,20 @@ class DatabaseHelper {
       'associatedRecipes': associatedRecipes
     };
   }
-
+ 
   // Recupera solo i nomi (per la lista di scelta)
   Future<List<String>> getAllPlannerNames() async {
     final db = await instance.database;
     final res = await db.query('planners');
     return res.map((row) => row['name'] as String).toList();
   }
+
+// Elimina un planner (cancellerà in automatico anche i pasti grazie al CASCADE)
+  Future<int> deletePlanner(int id) async {
+    final db = await instance.database;
+    return await db.delete('planners', where: 'id = ?', whereArgs: [id]);
+  }
+
 
   // ==========================================================
   // CHIUSURA DATABASE

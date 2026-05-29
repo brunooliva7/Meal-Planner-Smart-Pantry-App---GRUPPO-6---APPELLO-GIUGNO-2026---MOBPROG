@@ -4,7 +4,7 @@ import 'screens/dispensa.dart';
 import 'screens/ricette.dart';
 import 'screens/main_screen.dart';
 import 'screens/mealplanner.dart';
-
+import 'screens/createplanner.dart';
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
 // ==========================================================
@@ -135,17 +135,76 @@ class _BaseLayoutState extends State<BaseLayout> {
   // WIDGET DI SUPPORTO
   // ==============================================================
 
-  Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
-    bool isSelected = _selectedIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      behavior: HitTestBehavior.opaque, 
-      child: Icon(
-        icon,
-        size: size,
-        // COLORE AGGIORNATO (Verde primario o grigio disattivo)
-        color: isSelected ? primaryGreen : unselectedIconColor,
-      ),
-    );
-  }
+
+Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
+  bool isSelected = _selectedIndex == index;
+
+  return GestureDetector(
+    onTap: () async {
+
+      // 📅 MENU MEAL PLANNER
+      if (index == 1) {
+
+        final result = await showMenu(
+          context: context,
+          position: const RelativeRect.fromLTRB(100, 500, 100, 100),
+
+          items: [
+            PopupMenuItem(
+              value: 'create_planner',
+
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.add_circle_outline,
+                    color: primaryGreen,
+                    size: 20,
+                  ),
+
+                  const SizedBox(width: 10),
+
+                  Text(
+                    'Crea Planner',
+                    style: GoogleFonts.montserrat(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        // ✅ FIX BUILD CONTEXT
+        if (!mounted) return;
+
+        // 🚀 APERTURA PAGINA CREATE PLANNER
+        if (result == 'create_planner') {
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const CreateMealPlanScreen(),
+            ),
+          );
+        }
+
+        return;
+      }
+
+      // comportamento originale
+      setState(() => _selectedIndex = index);
+    },
+
+    behavior: HitTestBehavior.opaque,
+
+    child: Icon(
+      icon,
+      size: size,
+      color: isSelected ? primaryGreen : unselectedIconColor,
+    ),
+  );
+}
+
+
 }
