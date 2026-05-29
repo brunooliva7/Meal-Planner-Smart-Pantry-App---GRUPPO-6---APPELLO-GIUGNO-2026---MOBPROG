@@ -35,7 +35,6 @@ class MealSlot {
 
 class MealPlanScreen extends StatefulWidget {
   const MealPlanScreen({super.key});
-
   @override
   State<MealPlanScreen> createState() => _MealPlanScreenState();
 }
@@ -43,8 +42,6 @@ class MealPlanScreen extends StatefulWidget {
 class _MealPlanScreenState extends State<MealPlanScreen> {
   final List<String> _days = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
   int _currentDayIndex = 0;
-  
-  // 🌟 Nome del planner di riferimento (può essere modificato o scelto dinamicamente)
   String _currentPlannerName = "Dieta Definizione Estate 🏋️"; 
 
   void _nextDay() => _currentDayIndex < _days.length - 1 ? setState(() => _currentDayIndex++) : null;
@@ -54,7 +51,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
   Widget build(BuildContext context) {
     final String currentDay = _days[_currentDayIndex];
 
-    // 🛠️ LETTURA DAL DB: FutureBuilder per estrarre asincronamente i dati reali del planner corrente
     return FutureBuilder<Map<String, dynamic>?>(
       future: DatabaseHelper.instance.getPlannerComplete(_currentPlannerName),
       builder: (context, snapshot) {
@@ -69,7 +65,6 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
           currentDayMealTypes = data['dayMealTypes'] ?? {};
           currentAssociatedRecipes = data['associatedRecipes'] ?? {};
 
-          // Ricostruiamo la lista di MealSlot per il giorno selezionato partendo dai dati del DB
           if (currentAssociatedRecipes.containsKey(currentDay)) {
             int indexCounter = 0;
             currentAssociatedRecipes[currentDay]!.forEach((mealType, recipesList) {
@@ -102,15 +97,9 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.edit_note_rounded, size: 28, color: primaryGreen),
                           onPressed: () async {
-                            if (activePlannerId == 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                content: Text("Crea prima un planner per poterlo modificare!"),
-                                backgroundColor: Colors.redAccent,
-                              ));
-                              return;
-                            }
+                            if (activePlannerId == 0) return;
 
-                            // 🌟 AGGIORNAMENTO IN TEMPO REALE: Attendiamo il responso della schermata di modifica
+                            // 🌟 INTERCETTAZIONE REFRESH: Riceve lo stato di pop asincrono della pagina Edit
                             final bool? rinfrescaDati = await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
@@ -123,9 +112,8 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                               ),
                             );
 
-                            // Se è stato effettuato un salvataggio (true), aggiorna lo stato grafico locale
                             if (rinfrescaDati == true) {
-                              setState(() {});
+                              setState(() {}); // Riesegue istantaneamente il FutureBuilder dal DB
                             }
                           },
                         ),
@@ -134,28 +122,15 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.chevron_left_rounded, size: 28),
-                              color: _currentDayIndex == 0 ? Colors.grey.shade300 : primaryGreen,
-                              onPressed: _previousDay,
-                            ),
-                            // 🛠️ PROTEZIONE OVERFLOW: Avvolto in Flexible per schermi smartphone stretti
+                            IconButton(icon: const Icon(Icons.chevron_left_rounded, size: 28), color: _currentDayIndex == 0 ? Colors.grey.shade300 : primaryGreen, onPressed: _previousDay),
                             Flexible(
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
-                                child: Text(
-                                  currentDay, 
-                                  style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: Text(currentDay, style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark), overflow: TextOverflow.ellipsis),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.chevron_right_rounded, size: 28),
-                              color: _currentDayIndex == _days.length - 1 ? Colors.grey.shade300 : primaryGreen,
-                              onPressed: _nextDay,
-                            ),
+                            IconButton(icon: const Icon(Icons.chevron_right_rounded, size: 28), color: _currentDayIndex == _days.length - 1 ? Colors.grey.shade300 : primaryGreen, onPressed: _nextDay),
                           ],
                         ),
                       ),
@@ -167,7 +142,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                   child: snapshot.connectionState == ConnectionState.waiting
                       ? const Center(child: CircularProgressIndicator(color: primaryGreen))
                       : currentMeals.isEmpty 
-                          ? Center(child: Text("Nessun pasto memorizzato ", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500)))
+                          ? Center(child: Text("Nessun pasto memorizzato", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500)))
                           : ListView.separated(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                               itemCount: currentMeals.length,
@@ -193,49 +168,29 @@ class _MealCard extends StatelessWidget {
     final hasRecipes = slot.recipes.isNotEmpty;
 
     return Container(
-      decoration: BoxDecoration(
-        color: kCardBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kBorderColor),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 12, offset: const Offset(0, 6))],
-      ),
+      decoration: BoxDecoration(color: kCardBackground, borderRadius: BorderRadius.circular(20), border: Border.all(color: kBorderColor)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(color: kBackgroundClear, shape: BoxShape.circle),
+              padding: const EdgeInsets.all(10), decoration: const BoxDecoration(color: kBackgroundClear, shape: BoxShape.circle),
               child: Text(slot.emoji, style: const TextStyle(fontSize: 26)),
             ),
             const SizedBox(width: 14),
-            // 🛠️ PROTEZIONE OVERFLOW: Avvolto l'intero blocco informativo destro in un Expanded strutturale
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      // 🛠️ PROTEZIONE OVERFLOW: Flexible per evitare che mealType molto lunghi rompano la riga
-                      Flexible(
-                        child: Text(
-                          slot.type, 
-                          style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.2),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                      Flexible(child: Text(slot.type, style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.2), overflow: TextOverflow.ellipsis)),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: hasRecipes ? primaryGreen.withOpacity(0.1) : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          hasRecipes ? '${slot.recipes.length} Piatti' : 'Vuoto', 
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: hasRecipes ? primaryGreen : kTextMuted),
-                        ),
+                        decoration: BoxDecoration(color: hasRecipes ? primaryGreen.withOpacity(0.1) : Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                        child: Text(hasRecipes ? '${slot.recipes.length} Piatti' : 'Vuoto', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: hasRecipes ? primaryGreen : kTextMuted)),
                       ),
                     ],
                   ),
@@ -244,50 +199,30 @@ class _MealCard extends StatelessWidget {
                     Text('Cosa si mangia oggi?', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: kTextMuted.withOpacity(0.8)))
                   else
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 8, runSpacing: 8,
                       children: slot.recipes.map((recipe) {
                         return InkWell(
                           onTap: () {
-                            // 🌟 LOGICA REINDIRIZZAMENTO RICHIESTA: Distinguere tra ID negativi e positivi
-                            if (recipe.id < 0) {
-                              // 🔍 Caso A: Scritto a mano (id negativo). Apri i dettagli via testo/API
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => RecipeDetailScreen(recipeData: recipe.toMap(), isFromApi: true),
+                            // 🌟 DISCRIMINAZIONE ID RICHIESTA: Se l'ID è negativo (< 0) significa che è testo libero -> chiama API online
+                            // Se l'ID è positivo, la ricetta appartiene alle strutture salvate nel database localmente.
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RecipeDetailScreen(
+                                  recipeData: recipe.toMap(), 
+                                  isFromApi: recipe.id < 0, 
                                 ),
-                              );
-                            } else {
-                              // 💾 Caso B: Ricetta salvata nel DB locale (id positivo). Apri i dati prelevati localmente
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => RecipeDetailScreen(recipeData: recipe.toMap(), isFromApi: false),
-                                ),
-                              );
-                            }
+                              ),
+                            );
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: kBackgroundClear,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: primaryGreen.withOpacity(0.2)),
-                            ),
+                            decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.2))),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // 🛠️ PROTEZIONE OVERFLOW: Flexible e TextOverflow.ellipsis impediscono a ricette lunghe di uscire dalla card
-                                Flexible(
-                                  child: Text(
-                                    recipe.title,
-                                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
+                                Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark), maxLines: 1, overflow: TextOverflow.ellipsis)),
                                 const SizedBox(width: 6),
                                 const Icon(Icons.restaurant_menu_rounded, size: 14, color: primaryGreen),
                               ],

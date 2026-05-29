@@ -31,8 +31,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
 
   final Map<String, List<String>> _suggestionsPool = {
     "colazione": ["Pancakes allo sciroppo", "Porridge d'avena", "Yogurt greco con muesli", "Toast con avocado"],
-    "pranzo": ["Pasta aglio, olio e peperoncino", "Risotto ai funghi", "Gnocchi al pomodoro", "Insalata di quinoa"],
-    "cena": ["Petto di pollo e verdure", "Filetto di orata al cartoccio", "Frittata al forno", "Vellutata di zucca"],
+    "pranzo": ["Pasta aglio, olio", "Risotto ai funghi", "Gnocchi al pomodoro", "Insalata di quinoa"],
+    "cena": ["Petto di pollo", "Filetto di orata", "Frittata al forno", "Vellutata di zucca"],
     "snack": ["Frutta fresca", "Barretta proteica", "Manciata di noci", "Gallette di riso"]
   };
 
@@ -59,19 +59,10 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.redAccent),
-            const SizedBox(width: 8),
-            Text(title, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-          ],
-        ),
+        title: Text(title, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: Colors.redAccent)),
         content: Text(message, style: GoogleFonts.montserrat()),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx), 
-            child: const Text("Ho capito", style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold))
-          )
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK", style: TextStyle(color: primaryGreen, fontWeight: FontWeight.bold)))
         ],
       ),
     );
@@ -163,14 +154,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
 
   void _showAddPiatoDialog(String mealType) async {
     List<Map<String, dynamic>> savedRecipesDB = [];
-    
-    // Protezione per evitare il crash bloccante se testato su Edge/Web
     try {
-      final db = await DatabaseHelper.instance.database;
-      savedRecipesDB = await db.query('saved_recipes');
-    } catch (_) {
-      savedRecipesDB = []; 
-    }
+      savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(); // O query diretta su saved_recipes
+    } catch (_) {}
 
     if (!mounted) return;
     final TextEditingController piattoController = TextEditingController();
@@ -181,14 +167,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       backgroundColor: Colors.transparent,
       builder: (bottomSheetContext) => Container(
         height: MediaQuery.of(context).size.height * 0.75, 
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-        ),
-        padding: EdgeInsets.only(
-          top: 24, left: 24, right: 24,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 24, 
-        ),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+        padding: EdgeInsets.only(top: 24, left: 24, right: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -196,7 +176,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             const SizedBox(height: 20),
             Text("Aggiungi a $mealType", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: kTextDark)),
             const SizedBox(height: 20),
-            
             Row(
               children: [
                 Expanded(
@@ -217,9 +196,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     if (t.isEmpty) return;
                     Navigator.pop(bottomSheetContext); 
                     setState(() {
-                      // 💡 ID NEGATIVO: Se inserito a mano, generiamo un ID negativo basato sul timestamp.
-                      // Servirà nella pagina di riepilogo per capire che NON è una ricetta locale
-                      // e che cliccandoci sopra bisognerà lanciare la ricerca testuale sulle API.
                       _associatedRecipes[_selectedDay]![mealType]!.add(
                         RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: t, image: "")
                       );
@@ -229,16 +205,12 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                 ),
               ],
             ),
-            
             const SizedBox(height: 24),
-            Text("Oppure scegli dalle tue Ricette Salvate:", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: kTextMuted)),
+            Text("Scegli dalle tue Ricette...", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: kTextMuted)),
             const SizedBox(height: 12),
-
             Expanded(
               child: savedRecipesDB.isEmpty
-                ? Center(
-                    child: Text("Nessuna ricetta salvata localmente.\nUsa la ricerca dell'app per scaricarne alcune!", textAlign: TextAlign.center, style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 13)),
-                  )
+                ? Center(child: Text("Nessuna ricetta salvata localmente.", style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 13)))
                 : ListView.builder(
                     itemCount: savedRecipesDB.length,
                     itemBuilder: (context, index) {
@@ -249,25 +221,13 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                         margin: const EdgeInsets.only(bottom: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: kBorderColor)),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: recipe['image'] != null && recipe['image'].toString().isNotEmpty 
-                                ? Image.network(recipe['image'], width: 46, height: 46, fit: BoxFit.cover)
-                                : Container(width: 46, height: 46, color: Colors.grey[300], child: const Icon(Icons.restaurant, color: Colors.white)),
-                          ),
                           title: Text(recipe['title'] ?? 'Senza Titolo', style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: kTextDark)),
                           trailing: const Icon(Icons.add_circle, color: primaryGreen),
                           onTap: () {
                             Navigator.pop(bottomSheetContext);
                             setState(() {
-                              // 💡 ID REALE POSITIVO: Mantiene l'ID del database delle ricette scaricate
                               _associatedRecipes[_selectedDay]![mealType]!.add(
-                                RecipeModel(
-                                  id: recipe['id'], 
-                                  title: recipe['title'], 
-                                  image: recipe['image'] ?? ""
-                                )
+                                RecipeModel(id: recipe['id'], title: recipe['title'], image: recipe['image'] ?? "")
                               );
                             });
                           },
@@ -289,13 +249,12 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     String piattoScelto = opzioni[Random().nextInt(opzioni.length)];
 
     setState(() {
-      _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: DateTime.now().microsecondsSinceEpoch, title: piattoScelto, image: ""));
+      _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: -DateTime.now().microsecondsSinceEpoch, title: piattoScelto, image: ""));
     });
   }
 
   Future<void> _savePlannerToDatabase() async {
     String name = _plannerNameController.text.trim();
-    
     if (name.isEmpty) {
       _showErrorDialog("Attenzione", "Devi inserire un nome per il tuo piano alimentare!");
       return;
@@ -311,33 +270,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
       await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes);
 
       if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          title: Row(
-            children: [
-              const Icon(Icons.check_circle, color: primaryGreen),
-              const SizedBox(width: 8),
-              Text("Salvato!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text("Il planner '$name' è stato registrato nel Database.", style: GoogleFonts.montserrat()),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
-              onPressed: () {
-                Navigator.pop(dialogContext); 
-                Navigator.pop(context); 
-              },
-              child: const Text("Ottimo", style: TextStyle(color: Colors.white)),
-            )
-          ],
-        ),
-      );
+      Navigator.pop(context, true); // Forziamo il riaggiornamento tornando indietro
     } catch (e) {
-      _showErrorDialog("Errore", "Impossibile salvare su questo dispositivo/ambiente: $e");
+      _showErrorDialog("Errore", "Impossibile salvare il planner: $e");
     }
   }
 
@@ -348,7 +283,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     return Scaffold(
       backgroundColor: kBackgroundClear,
       appBar: AppBar(
-        title: Text("Nuovo Meal Planner", style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.w700, color: kTextDark)),
+        title: Text("Nuovo Meal Planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark)),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -359,16 +294,16 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 16, offset: const Offset(0, 4))]),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("NOME DEL PIANO ALIMENTARE *", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.1)),
+                    Text("NOME DEL PIANO ALIMENTARE *", style: GoogleFonts.montserrat(fontSize: 10, fontWeight: FontWeight.w800, color: primaryGreen)),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _plannerNameController,
                       style: GoogleFonts.montserrat(fontSize: 16, color: kTextDark, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(hintText: "Es: Dieta Definizione Estate 🏋️", hintStyle: GoogleFonts.montserrat(color: kTextMuted, fontSize: 14), border: InputBorder.none, isDense: true),
+                      decoration: const InputDecoration(border: InputBorder.none, isDense: true),
                     ),
                   ],
                 ),
@@ -386,16 +321,9 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                       padding: const EdgeInsets.only(right: 10.0),
                       child: InkWell(
                         onTap: () => setState(() => _selectedDay = day),
-                        borderRadius: BorderRadius.circular(25),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? primaryGreen : Colors.white,
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(color: isSelected ? Colors.transparent : kBorderColor),
-                            boxShadow: isSelected ? [BoxShadow(color: primaryGreen.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4))] : [],
-                          ),
+                          decoration: BoxDecoration(color: isSelected ? primaryGreen : Colors.white, borderRadius: BorderRadius.circular(25)),
                           child: Center(child: Text(day, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w700, color: isSelected ? Colors.white : kTextDark))),
                         ),
                       ),
@@ -407,108 +335,85 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("MENU DI ${_selectedDay.toUpperCase()} (${pastiDelGiorno.length}/10)", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w800, color: primaryGreen, letterSpacing: 1.1)),
+                  Text("MENU DI ${_selectedDay.toUpperCase()}", style: GoogleFonts.montserrat(fontSize: 12, fontWeight: FontWeight.w800, color: primaryGreen)),
                   TextButton.icon(
                     onPressed: _addNewMealSlot,
-                    icon: const Icon(Icons.add_circle_outline_rounded, color: primaryGreen, size: 18),
-                    label: Text("Aggiungi Pasto", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.w700, fontSize: 13)),
+                    icon: const Icon(Icons.add_circle_outline_rounded, color: primaryGreen, size: 16),
+                    label: Text("Pasto", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.w700, fontSize: 13)),
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: Column(
-                  key: ValueKey<String>(_selectedDay),
-                  children: pastiDelGiorno.map((mealType) {
-                    final listRecipes = _associatedRecipes[_selectedDay]![mealType] ?? [];
-                    final baseType = mealType.split(' ')[0];
+              Column(
+                children: pastiDelGiorno.map((mealType) {
+                  final listRecipes = _associatedRecipes[_selectedDay]![mealType] ?? [];
+                  final baseType = mealType.split(' ')[0];
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 18.0),
-                      child: Container(
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: kBorderColor, width: 1)),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 14, 12, 8),
-                              child: Row(
-                                children: [
-                                  Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
-                                  const SizedBox(width: 10),
-                                  Text(mealType, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark)),
-                                  const Spacer(),
-                                  IconButton(icon: const Icon(Icons.lightbulb_outline_rounded, color: Colors.amber, size: 20), onPressed: () => _suggestRecipeFromApi(mealType)),
-                                  IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => _removeMealSlot(mealType)),
-                                ],
-                              ),
-                            ),
-                            const Divider(color: kBorderColor, height: 1),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (listRecipes.isNotEmpty) ...[
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: listRecipes.map((recipe) {
-                                        return Container(
-                                          padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-                                          decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.2))),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark)),
-                                              const SizedBox(width: 6),
-                                              GestureDetector(
-                                                onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)),
-                                                child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  InkWell(
-                                    onTap: () => _showAddPiatoDialog(mealType),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
-                                      decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.3), width: 1.5)),
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: kBorderColor)),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
+                          title: Text(mealType, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(icon: const Icon(Icons.lightbulb_outline_rounded, color: Colors.amber, size: 20), onPressed: () => _suggestRecipeFromApi(mealType)),
+                              IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20), onPressed: () => _removeMealSlot(mealType)),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            children: [
+                              if (listRecipes.isNotEmpty) ...[
+                                Wrap(
+                                  spacing: 8, runSpacing: 8,
+                                  children: listRecipes.map((recipe) {
+                                    return Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12)),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(Icons.add_rounded, color: primaryGreen, size: 18),
+                                          Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 12, color: kTextDark), overflow: TextOverflow.ellipsis)),
                                           const SizedBox(width: 6),
-                                          Text("Aggiungi piatto...", style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: primaryGreen)),
+                                          GestureDetector(
+                                            onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)),
+                                            child: const Icon(Icons.close, size: 14, color: Colors.grey),
+                                          )
                                         ],
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              InkWell(
+                                onTap: () => _showAddPiatoDialog(mealType),
+                                child: Container(
+                                  width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12)),
+                                  child: Center(child: Text("+ Aggiungi piatto", style: GoogleFonts.montserrat(fontSize: 13, color: primaryGreen, fontWeight: FontWeight.bold))),
+                                ),
+                              )
+                            ],
+                          ),
+                        )
+                      ],
+                    ),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                height: 54,
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: primaryGreen.withOpacity(0.25), blurRadius: 16, offset: const Offset(0, 6))]),
+              SizedBox(
+                width: double.infinity, height: 54,
                 child: ElevatedButton(
                   onPressed: _savePlannerToDatabase,
-                  style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+                  style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
                   child: Text("Salva planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
               ),

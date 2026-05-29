@@ -172,20 +172,37 @@ class _BaseLayoutState extends State<BaseLayout> {
 
             items: [
               PopupMenuItem(
-                value: 'create_planner',
-
+                value: 'view_planner', // 🌟 NUOVA OPZIONE AGGIUNTA
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-
+                  children: [
+                    const Icon(
+                      Icons.calendar_view_week,
+                      color: primaryGreen,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Visualizza Planner',
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'create_planner',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.add_circle_outline,
                       color: primaryGreen,
                       size: 20,
                     ),
-
                     const SizedBox(width: 10),
-
                     Text(
                       'Crea Planner',
                       style: GoogleFonts.montserrat(
@@ -201,8 +218,12 @@ class _BaseLayoutState extends State<BaseLayout> {
 
           if (!mounted) return;
 
-          // 🚀 APERTURA CREATE PLANNER
-          if (result == 'create_planner') {
+          // 🚀 GESTIONE DELLA SCELTA DAL MENU
+          if (result == 'view_planner') {
+            setState(() {
+              _selectedIndex = 1; // Cambia l'indice per mostrare la schermata del Meal Plan
+            });
+          } else if (result == 'create_planner') {
             Navigator.push(
               context,
               MaterialPageRoute(
