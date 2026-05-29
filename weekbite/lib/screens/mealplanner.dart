@@ -111,7 +111,7 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                               ),
                             );
 
-                            if (rinfrescaDati == true) {
+                            if (rinfrescaDati == true && mounted) {
                               setState(() {}); 
                             }
                           },

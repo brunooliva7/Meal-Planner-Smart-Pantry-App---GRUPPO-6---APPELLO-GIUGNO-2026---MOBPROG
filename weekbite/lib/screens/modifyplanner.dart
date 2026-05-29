@@ -65,7 +65,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              editPiattoController.dispose();
+              FocusScope.of(context).unfocus();
               Navigator.pop(dialogContext);
             }, 
             child: const Text("Annulla")
@@ -75,7 +75,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
             onPressed: () {
               if (editPiattoController.text.trim().isEmpty) return;
               int idx = _associatedRecipes[_selectedDay]![mealType]!.indexOf(oldRecipe);
-              if (idx != -1) {
+              if (idx != -1 && mounted) {
                 setState(() {
                   _associatedRecipes[_selectedDay]![mealType]![idx] = RecipeModel(
                     id: oldRecipe.id < 0 ? -DateTime.now().millisecondsSinceEpoch : oldRecipe.id,
@@ -84,14 +84,14 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                   );
                 });
               }
-              editPiattoController.dispose();
+              FocusScope.of(context).unfocus();
               Navigator.pop(dialogContext);
             },
             child: const Text("Aggiorna", style: TextStyle(color: Colors.white)),
           )
         ],
       ),
-    );
+    ).then((_) => editPiattoController.dispose());
   }
 
   void _showAddPiattoDialog(String mealType) async {
@@ -118,10 +118,12 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: primaryGreen),
               onPressed: () {
                 if (piattoController.text.trim().isEmpty) return;
-                setState(() {
-                  _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: piattoController.text.trim(), image: ""));
-                });
-                piattoController.dispose();
+                if (mounted) {
+                  setState(() {
+                    _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: -DateTime.now().millisecondsSinceEpoch, title: piattoController.text.trim(), image: ""));
+                  });
+                }
+                FocusScope.of(context).unfocus();
                 Navigator.pop(bottomSheetContext);
               },
               child: const Text("Aggiungi a mano libera", style: TextStyle(color: Colors.white)),
@@ -135,10 +137,12 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                   return ListTile(
                     title: Text(rec['title'] ?? ''),
                     onTap: () {
-                      setState(() {
-                        _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: rec['id'], title: rec['title'], image: rec['image'] ?? ""));
-                      });
-                      piattoController.dispose();
+                      if (mounted) {
+                        setState(() {
+                          _associatedRecipes[_selectedDay]![mealType]!.add(RecipeModel(id: rec['id'], title: rec['title'], image: rec['image'] ?? ""));
+                        });
+                      }
+                      FocusScope.of(context).unfocus();
                       Navigator.pop(bottomSheetContext);
                     },
                   );
@@ -148,7 +152,7 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) => piattoController.dispose());
   }
 
   Future<void> _updatePlannerInDatabase() async {
