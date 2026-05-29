@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/dispensa.dart';
-import 'screens/ricette.dart';
+import 'screens/ricette.dart'; // Mantenuto se lo usi altrove
 import 'screens/main_screen.dart';
-import 'screens/mealplanner.dart';
+import 'screens/mealplanner.dart'; // Mantenuto se lo usi altrove
 import 'screens/createplanner.dart';
 import 'screens/user_profile_screen.dart';
+import 'screens/auth_screen.dart'; // 🔴 IMPORTAZIONE DELLA SCHERMATA DI LOGIN
+
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
 // ==========================================================
@@ -76,6 +78,9 @@ class BaseLayout extends StatefulWidget {
 class _BaseLayoutState extends State<BaseLayout> {
   int _selectedIndex = 0;
 
+  // 🔴 VARIABILE PER CONTROLLARE SE L'UTENTE È LOGGATO
+  bool isUserLogged = false;
+
   // ==========================================================
   // 📄 LE TUE SCHERMATE (QUI SOSTITUIRAI CON I TUOI FILE)
   // ==========================================================
@@ -84,9 +89,7 @@ class _BaseLayoutState extends State<BaseLayout> {
     Center(child: Text("Meal Plan", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     const DispensaScreen(),
-    //Center(child: Text("Dispensa", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
     const UserProfileScreen(),
-    //Center(child: Text("Utente", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))),
   ];
 
   void _onItemTapped(int index) {
@@ -95,6 +98,7 @@ class _BaseLayoutState extends State<BaseLayout> {
     });
   }
 
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -137,101 +141,106 @@ class _BaseLayoutState extends State<BaseLayout> {
   // WIDGET DI SUPPORTO
   // ==============================================================
 
+  Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
+    bool isSelected = _selectedIndex == index;
 
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
 
+      onTapDown: (details) async {
 
-Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
-  bool isSelected = _selectedIndex == index;
+        // 📅 MENU CENTRATO SOPRA CALENDAR MONTH
+        if (index == 1) {
 
-  return GestureDetector(
-    behavior: HitTestBehavior.opaque,
+          final result = await showMenu(
+            context: context,
 
-    onTapDown: (details) async {
+            position: RelativeRect.fromLTRB(
+              details.globalPosition.dx - 70, // ← centra il menu
+              details.globalPosition.dy - 90, // ← posizione sopra
+              details.globalPosition.dx - 10,
+              details.globalPosition.dy,
+            ),
 
-      // 📅 MENU CENTRATO SOPRA CALENDAR MONTH
-      if (index == 1) {
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
 
-        final result = await showMenu(
-          context: context,
+            elevation: 8,
 
-          position: RelativeRect.fromLTRB(
-            details.globalPosition.dx - 70, // ← centra il menu
-            details.globalPosition.dy - 90, // ← posizione sopra
-            details.globalPosition.dx - 10,
-            details.globalPosition.dy,
-          ),
+            color: Colors.white,
 
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
+            items: [
+              PopupMenuItem(
+                value: 'create_planner',
 
-          elevation: 8,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
 
-          color: Colors.white,
-
-          items: [
-            PopupMenuItem(
-              value: 'create_planner',
-
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-
-                children: [
-                  const Icon(
-                    Icons.add_circle_outline,
-                    color: primaryGreen,
-                    size: 20,
-                  ),
-
-                  const SizedBox(width: 10),
-
-                  Text(
-                    'Crea Planner',
-                    style: GoogleFonts.montserrat(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+                  children: [
+                    const Icon(
+                      Icons.add_circle_outline,
+                      color: primaryGreen,
+                      size: 20,
                     ),
-                  ),
-                ],
+
+                    const SizedBox(width: 10),
+
+                    Text(
+                      'Crea Planner',
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        );
-
-        if (!mounted) return;
-
-        // 🚀 APERTURA CREATE PLANNER
-        if (result == 'create_planner') {
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const CreateMealPlanScreen(),
-            ),
+            ],
           );
+
+          if (!mounted) return;
+
+          // 🚀 APERTURA CREATE PLANNER
+          if (result == 'create_planner') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CreateMealPlanScreen(),
+              ),
+            );
+          }
+
+          return;
         }
 
-        return;
-      }
+        // 🔴 CONTROLLO CRUCIALE: Logica di accesso (Auth) se clicca su Profilo
+        if (index == 4 && !isUserLogged) {
+          final hasLoggedIn = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()),
+          );
 
-      // comportamento originale
-      setState(() => _selectedIndex = index);
-    },
+          if (hasLoggedIn == true) {
+            setState(() {
+              isUserLogged = true;
+              _selectedIndex = 4; // Portiamo l'utente direttamente sulla pagina del profilo
+            });
+          }
+          return;
+        }
 
-    child: Icon(
-      icon,
-      size: size,
-      color: isSelected
-          ? primaryGreen
-          : unselectedIconColor,
-    ),
-  );
-}
+        // comportamento originale per tutti gli altri tasti
+        setState(() => _selectedIndex = index);
+      },
 
-
-
-
-
-
-
+      child: Icon(
+        icon,
+        size: size,
+        color: isSelected
+            ? primaryGreen
+            : unselectedIconColor,
+      ),
+    );
+  }
 }
