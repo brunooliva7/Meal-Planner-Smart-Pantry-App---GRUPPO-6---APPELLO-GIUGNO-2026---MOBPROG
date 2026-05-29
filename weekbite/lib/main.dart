@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/dispensa.dart';
 import 'screens/ricette.dart';
 import 'screens/main_screen.dart';
+import 'screens/mealplanner.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
