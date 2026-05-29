@@ -476,16 +476,29 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                                       runSpacing: 8,
                                       children: listRecipes.map((recipe) {
                                         return Container(
+                                          // 🔴 AGGIUNTA: Forza il contenitore a non essere mai più largo dello schermo (meno i margini)
+                                          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 80),
                                           padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
                                           decoration: BoxDecoration(color: kBackgroundClear, borderRadius: BorderRadius.circular(12), border: Border.all(color: primaryGreen.withOpacity(0.2))),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark)),
+                                              // 🔴 AGGIUNTA: Flexible permette al testo di restringersi invece di spingere fuori la X
+                                              Flexible(
+                                                child: Text(
+                                                  recipe.title, 
+                                                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark),
+                                                  overflow: TextOverflow.ellipsis, // Mette i "..." se il testo è troppo lungo
+                                                ),
+                                              ),
                                               const SizedBox(width: 6),
                                               GestureDetector(
                                                 onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)),
-                                                child: Container(padding: const EdgeInsets.all(2), decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(2), 
+                                                  decoration: const BoxDecoration(color: Colors.black12, shape: BoxShape.circle), 
+                                                  child: const Icon(Icons.close_rounded, size: 12, color: Colors.white)
+                                                ),
                                               ),
                                             ],
                                           ),
