@@ -47,6 +47,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
         )
       );
       
+      // Chiudiamo il form e puliamo i campi per la prossima volta
       _showForm = false;
       _nomeController.clear();
       _quantitaController.clear();
@@ -123,9 +124,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
                   ),
                   child: IconButton(
                     onPressed: (){
-                      setState(() {
-                        _showForm = true; 
-                      });
+                      //funzione di add lista spesa
                     },
                     icon: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
                   ),
@@ -226,90 +225,6 @@ class _DispensaScreenState extends State<DispensaScreen>{
               },
             ),
           ),
-        if (_showForm)
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black54, // Sfondo scuro semi-trasparente
-                  child: Center(
-                    child: SingleChildScrollView( // Aiuta se la tastiera copre lo schermo
-                      child: Card(
-                        margin: const EdgeInsets.all(24),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Nuovo Ingrediente",
-                                style: GoogleFonts.montserrat(fontSize: 20, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 16),
-                              TextField(
-                                controller: _nomeController,
-                                decoration: InputDecoration(
-                                  labelText: "Nome",
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _quantitaController,
-                                      keyboardType: TextInputType.number,
-                                      decoration: InputDecoration(
-                                        labelText: "Quantità",
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: _unitaController,
-                                      decoration: InputDecoration(
-                                        labelText: "Unità (es. g, ml)",
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      // Chiude il form senza salvare
-                                      setState(() {
-                                        _showForm = false;
-                                      });
-                                    },
-                                    child: const Text("Annulla", style: TextStyle(color: Colors.grey)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: primaryGreen,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    ),
-                                    onPressed: _salvaIngrediente, // Chiama la funzione creata in alto
-                                    child: const Text("Salva", style: TextStyle(color: Colors.white)),
-                                  ),
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
         ],
       )
     );
