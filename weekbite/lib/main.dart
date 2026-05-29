@@ -136,24 +136,44 @@ class _BaseLayoutState extends State<BaseLayout> {
   // ==============================================================
 
 
+
+
 Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
   bool isSelected = _selectedIndex == index;
 
   return GestureDetector(
-    onTap: () async {
+    behavior: HitTestBehavior.opaque,
 
-      // 📅 MENU MEAL PLANNER
+    onTapDown: (details) async {
+
+      // 📅 MENU CENTRATO SOPRA CALENDAR MONTH
       if (index == 1) {
 
         final result = await showMenu(
           context: context,
-          position: const RelativeRect.fromLTRB(100, 500, 100, 100),
+
+          position: RelativeRect.fromLTRB(
+            details.globalPosition.dx - 70, // ← centra il menu
+            details.globalPosition.dy - 90, // ← posizione sopra
+            details.globalPosition.dx - 10,
+            details.globalPosition.dy,
+          ),
+
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+
+          elevation: 8,
+
+          color: Colors.white,
 
           items: [
             PopupMenuItem(
               value: 'create_planner',
 
               child: Row(
+                mainAxisSize: MainAxisSize.min,
+
                 children: [
                   const Icon(
                     Icons.add_circle_outline,
@@ -167,6 +187,7 @@ Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
                     'Crea Planner',
                     style: GoogleFonts.montserrat(
                       fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -175,10 +196,9 @@ Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
           ],
         );
 
-        // ✅ FIX BUILD CONTEXT
         if (!mounted) return;
 
-        // 🚀 APERTURA PAGINA CREATE PLANNER
+        // 🚀 APERTURA CREATE PLANNER
         if (result == 'create_planner') {
 
           Navigator.push(
@@ -196,15 +216,20 @@ Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
       setState(() => _selectedIndex = index);
     },
 
-    behavior: HitTestBehavior.opaque,
-
     child: Icon(
       icon,
       size: size,
-      color: isSelected ? primaryGreen : unselectedIconColor,
+      color: isSelected
+          ? primaryGreen
+          : unselectedIconColor,
     ),
   );
 }
+
+
+
+
+
 
 
 }
