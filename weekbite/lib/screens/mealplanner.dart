@@ -23,7 +23,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
   final List<String> _days = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
   String _selectedDay = "Lunedì";
 
-  // 🟢 DATI PROVENIENTI DAL DATABASE
   List<String> _allPlannerNames = [];
   String? _selectedPlannerName;
   Map<String, List<String>> _dayMealTypes = {};
@@ -42,42 +41,37 @@ class MealPlanScreenState extends State<MealPlanScreen> {
     _loadPlannerData();
   }
   void _setTodayDay() {
-    int weekday = DateTime.now().weekday; // Lunedì = 1, Domenica = 7
+    int weekday = DateTime.now().weekday; 
     setState(() {
       _selectedDay = _days[weekday - 1];
     });
   }
   
-  // 🌟 METODO PUBBLICO richiamato da main.dart per aggiornare il dropdown quando si crea un nuovo planner
   void forceReloadFromDb() {
-    _selectedPlannerName = null; // Forza il dropdown a ricalcolare partendo dall'ultimo inserito
+    _selectedPlannerName = null; 
     _loadPlannerData();
   }
-  // 🟢 LOGICA DI CARICAMENTO DAL DATABASE SQLITE
+
   Future<void> _loadPlannerData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      // 1. Recuperiamo tutti i nomi dei planner salvati
       final names = await DatabaseHelper.instance.getAllPlannerNames();
       
       if (names.isNotEmpty) {
         _allPlannerNames = names;
         
-        // Se non c'è una selezione attiva, prendiamo il primo della lista
         if (_selectedPlannerName == null || !_allPlannerNames.contains(_selectedPlannerName)) {
           _selectedPlannerName = _allPlannerNames.first;
         }
 
-        // 2. Recuperiamo i dettagli completi del planner selezionato
         final completeData = await DatabaseHelper.instance.getPlannerComplete(_selectedPlannerName!);
         if (completeData != null) {
-          _currentPlannerId = completeData['id'] ?? 0; // 🌟 Salviamo l'ID
+          _currentPlannerId = completeData['id'] ?? 0; 
           _dayMealTypes = completeData['dayMealTypes'] as Map<String, List<String>>;
           _associatedRecipes = completeData['associatedRecipes'] as Map<String, Map<String, List<RecipeModel>>>;
         }
       } else {
-        // Database vuoto, nessun planner presente
         _allPlannerNames = [];
         _selectedPlannerName = null;
         _dayMealTypes = {};
@@ -99,8 +93,8 @@ class MealPlanScreenState extends State<MealPlanScreen> {
     final data = await DatabaseHelper.instance.getPlannerComplete(_selectedPlannerName!);
     if (data != null && data['id'] != null) {
       await DatabaseHelper.instance.deletePlanner(data['id'] as int);
-      _selectedPlannerName = null; // Resetta la selezione
-      _loadPlannerData(); // Ricarica
+      _selectedPlannerName = null; 
+      _loadPlannerData(); 
     }
   }
 
@@ -113,7 +107,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
       );
     }
 
-    // Se l'utente non ha creato nessun piano alimentare
     if (_selectedPlannerName == null || _allPlannerNames.isEmpty) {
       return Scaffold(
         backgroundColor: kBackgroundClear,
@@ -155,7 +148,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
         elevation: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-          // 🌟 TASTO MODIFICA: Posizionato perfettamente in alto a sinistra nell'AppBar
           child: Container(
             decoration: const BoxDecoration(color: kBackgroundClear, shape: BoxShape.circle),
             child: IconButton(
@@ -164,7 +156,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
               onPressed: () async {
                 if (_currentPlannerId == 0) return;
 
-                // Navigazione verso la modifica passando tutti i dati strutturati richiesti
                 final bool? rinfrescaDati = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
@@ -177,7 +168,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                   ),
                 );
 
-                // Se la pagina di modifica restituisce true, aggiorna la visualizzazione dal DB
                 if (rinfrescaDati == true) {
                   _loadPlannerData();
                 }
@@ -235,7 +225,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // BARRA ORIZZONTALE DEI GIORNI
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -275,7 +264,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
               ),
             ),
             
-            // LISTA DEI PASTI DEL GIORNO SELEZIONATO
             Expanded(
               child: pastiDelGiorno.isEmpty
                   ? Center(child: Text("Nessun pasto configurato per oggi.", style: GoogleFonts.montserrat(color: kTextMuted)))
@@ -320,9 +308,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                                               onTap: () async {
                                                 String searchTitle = recipe.title;
 
-                                                // 🌟 TRADUZIONE INTELLIGENTE PRIMA DI APRIRE L'API DI SPOONACULAR
                                                 if (recipe.id < 0) {
-                                                  // Mostriamo un piccolo indicatore di caricamento sopra l'app per far capire che sta traducendo
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(
                                                       content: Text(" ricerca della ricetta affine per '$searchTitle'...", style: GoogleFonts.montserrat()),
@@ -333,7 +319,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
 
                                                   try {
                                                     final translator = GoogleTranslator();
-                                                    // Converte l'italiano inserito a mano in Inglese per Spoonacular
                                                     var translation = await translator.translate(recipe.title, from: 'auto', to: 'en');
                                                     searchTitle = translation.text;
                                                   } catch (e) {
@@ -356,7 +341,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                                                     ),
                                                   ),
                                                 );
-                                              },                     
+                                              },                                     
                                               borderRadius: BorderRadius.circular(12),
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

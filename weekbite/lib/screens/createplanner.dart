@@ -152,7 +152,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         ),
       ),
     ).then((_) {
-      // 🟢 RITARDO L'ELIMINAZIONE DEL CONTROLLER PER EVITARE L'ERRORE _dependents.isEmpty
       Future.delayed(const Duration(milliseconds: 200), () {
         customNameController.dispose();
       });
@@ -216,7 +215,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                         );
                       });
                     }
-                    FocusScope.of(context).unfocus(); // Rimuove la tastiera
+                    FocusScope.of(context).unfocus(); 
                     Navigator.pop(bottomSheetContext); 
                   },
                   child: const Icon(Icons.add, color: Colors.white),
@@ -261,7 +260,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
         ),
       ),
     ).then((_) {
-      // 🟢 RITARDO L'ELIMINAZIONE DEL CONTROLLER PER EVITARE L'ERRORE _dependents.isEmpty
       Future.delayed(const Duration(milliseconds: 200), () {
         piattoController.dispose();
       });
@@ -328,6 +326,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _plannerNameController,
+                      maxLines: null,
                       style: GoogleFonts.montserrat(fontSize: 16, color: kTextDark, fontWeight: FontWeight.w600),
                       decoration: const InputDecoration(border: InputBorder.none, isDense: true),
                     ),
@@ -372,7 +371,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               const SizedBox(height: 14),
               Column(
                 children: pastiDelGiorno.map((mealType) {
-                  final listRecipes = _associatedRecipes[_selectedDay]![mealType] ?? [];
+                  // 🟢 RIPRISTINATO IL TUO CODICE ORIGINALE PERFETTO: Tolto il bug del .id
+                  final listRecipes = _associatedRecipes[_selectedDay]?[mealType] ?? [];
                   final baseType = mealType.split(' ')[0];
 
                   return Container(
@@ -382,7 +382,11 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
                       children: [
                         ListTile(
                           leading: Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
-                          title: Text(mealType, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark)),
+                          title: Row(
+                            children: [
+                              Expanded(child: Text(mealType, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark), overflow: TextOverflow.ellipsis)),
+                            ],
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
