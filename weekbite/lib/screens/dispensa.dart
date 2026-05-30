@@ -1,35 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:weekbite/main.dart';
-
-class Ingredienti{
-  final String nome; //nome del prodotto
-  final double quantita; //quantità nominale del prodotto
-  final String unitaMisura; //unità di misura del prodotto
-  int pezzi; //pezzi del prodotto
-  final String categoria;
-  final DateTime dataScadenza;
-
-  Ingredienti({
-    required this.nome, 
-    required this.quantita,
-    required this.unitaMisura,
-    required this.pezzi,
-    required this.categoria,
-    required this.dataScadenza,
-  });
-}
+import 'package:weekbite/screens/ingredienti_model.dart';
+import 'package:weekbite/database/database_helper.dart'; 
 
 final Map<String, String> categoriaM = {
-    'Pasta': '🍝',
-    'Frutta': '🍎',
-    'Verdura': '🥦',
-    'Carne': '🥩',
-    'Pesce': '🐟',
-    'Latticini': '🧀',
-    'Bevande': '🥤',
-    'Altro': '🛍️',
-  };
+  'Pasta': '🍝',
+  'Frutta': '🍎',
+  'Verdura': '🥦',
+  'Carne': '🥩',
+  'Pesce': '🐟',
+  'Latticini': '🧀',
+  'Bevande': '🥤',
+  'Altro': '🛍️',
+};
 
 class DispensaScreen extends StatefulWidget{
   const DispensaScreen({super.key});
@@ -42,6 +26,23 @@ List<Ingredienti> dispensa = [];
 List<Ingredienti> lista = [];
 
 class _DispensaScreenState extends State<DispensaScreen>{
+  @override
+  void initState() {
+    super.initState();
+    _caricaDatiDalDatabase(); // 🟢 Chiama il database all'avvio
+  }
+
+  Future<void> _caricaDatiDalDatabase() async {
+    // Legge le due tabelle
+    final dispensaDb = await DatabaseHelper.instance.getIngredienti('dispensa');
+    final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa');
+    
+    // Aggiorna lo schermo con i dati salvati!
+    setState(() {
+      dispensa = dispensaDb;
+      lista = listaDb;
+    });
+  }
 
   @override 
   Widget build(BuildContext context){
@@ -336,17 +337,15 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                           builder: (context) => FormIngredientiScreen(ingredienteEsistente: listaspesa),
                         ),
                       );
-
                       if (ingredienteModificato != null) {
+                        await DatabaseHelper.instance.updateIngrediente('lista_spesa', ingredienteModificato);
                         setState(() {
-                          int indexGlobale = dispensa.indexOf(listaspesa);
-                          if (indexGlobale != -1) {
-                            dispensa[indexGlobale] = ingredienteModificato;
-                          }
+                          lista[i] = ingredienteModificato;
                         });
                       }
                     },
-                    onElimina: () {
+                    onElimina: () async {
+                      await DatabaseHelper.instance.deleteIngrediente('lista_spesa', listaspesa.id!);
                       setState(() {
                         lista.removeAt(i);
                       });
@@ -356,10 +355,13 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                       value: false, 
                       activeColor: primaryGreen,
                       shape: const CircleBorder(), // Lo rende un cerchietto rotondo
-                      onChanged: (bool? completato) {
+                      onChanged: (bool? completato) async {
                         if (completato == true) {
+                          await DatabaseHelper.instance.deleteIngrediente('lista_spesa', listaspesa.id!);
+
+                          final nuovoInDispensa = await DatabaseHelper.instance.addIngrediente('dispensa', listaspesa);
                           setState(() {
-                            dispensa.add(listaspesa);
+                            dispensa.add(nuovoInDispensa);
                             lista.removeAt(i);
                           });
                         }
@@ -381,8 +383,9 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
             ),
           );
           if (risultato != null && risultato is Ingredienti) {
+            final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato);
             setState(() {
-              lista.add(risultato);
+              lista.add(ingredienteSalvato);
             });
           }
         },
@@ -619,6 +622,7 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                     child: TextButton(
                       onPressed: () {
                         final nuovoIngrediente = Ingredienti(
+                          id: widget.ingredienteEsistente?.id,
                           nome: _nomeController.text,
                           quantita: double.tryParse(_quantitaController.text) ?? 0,
                           unitaMisura: _unitaSelezionata,
@@ -714,9 +718,10 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
                     ingrediente: ingrediente,
                     onTap: () {
                     },
-                    onElimina: () {
+                    onElimina: () async {
+                      await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
                       setState(() {
-                        dispensa.remove(ingrediente);
+                        dispensa.removeWhere((item) => item.id == ingrediente.id);
                       });
                     },
                     onModifica: () async {
@@ -728,8 +733,9 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
                       );
 
                       if (ingredienteModificato != null) {
+                        await DatabaseHelper.instance.updateIngrediente('dispensa', ingredienteModificato);
                         setState(() {
-                          int indexGlobale = dispensa.indexOf(ingrediente);
+                          int indexGlobale = dispensa.indexWhere((item) => item.id == ingrediente.id);
                           if (indexGlobale != -1) {
                             dispensa[indexGlobale] = ingredienteModificato;
                           }

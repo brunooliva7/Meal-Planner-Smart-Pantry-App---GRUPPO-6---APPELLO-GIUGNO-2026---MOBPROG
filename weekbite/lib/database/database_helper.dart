@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:weekbite/screens/recipe_model.dart'; // Assicurati che il percorso sia corretto per il tuo progetto
+import 'package:weekbite/screens/ingredienti_model.dart';
 
 class DatabaseHelper {
   // Pattern Singleton: garantisce che esista una sola istanza del database in tutta l'app
@@ -22,7 +23,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // 🟢 BUMP ALLA VERSIONE 2 (FONDAMENTALE)
+      version: 3, // 🟢 BUMP ALLA VERSIONE 2 (FONDAMENTALE)
       onCreate: _createDB,
       onUpgrade: _onUpgrade, // 🟢 AGGIUNTO IL METODO DI AGGIORNAMENTO
       onConfigure: _onConfigure, 
@@ -95,6 +96,30 @@ class DatabaseHelper {
         password TEXT
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE dispensa (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT,
+        quantita REAL,
+        unitaMisura TEXT,
+        pezzi INTEGER,
+        categoria TEXT,
+        dataScadenza TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE lista_spesa (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT,
+        quantita REAL,
+        unitaMisura TEXT,
+        pezzi INTEGER,
+        categoria TEXT,
+        dataScadenza TEXT
+      )
+    ''');
   }
 
   // ==========================================================
@@ -114,6 +139,20 @@ class DatabaseHelper {
           password TEXT
         )
       ''');
+      if (oldVersion < 3) {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS dispensa (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT, quantita REAL, unitaMisura TEXT, pezzi INTEGER, categoria TEXT, dataScadenza TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS lista_spesa (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT, quantita REAL, unitaMisura TEXT, pezzi INTEGER, categoria TEXT, dataScadenza TEXT
+          )
+        ''');
+      }
     }
   }
 
@@ -377,6 +416,49 @@ class DatabaseHelper {
         'data_json': jsonEncode(recipe),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
+  }
+
+  Future<Ingredienti> addIngrediente(String nomeTabella, Ingredienti ingrediente) async {
+    final db = await instance.database;
+    final id = await db.insert(nomeTabella, ingrediente.toMap());
+    ingrediente.id = id; // Assegna l'ID generato dal DB
+    print("200");
+    return ingrediente;
+  }
+
+  // Legge tutti gli ingredienti da una tabella
+  Future<List<Ingredienti>> getIngredienti(String nomeTabella) async {
+    final db = await instance.database;
+    final result = await db.query(nomeTabella);
+    print("200");
+    return result.map((json) => Ingredienti.fromMap(json)).toList();
+  }
+
+  // Aggiorna un ingrediente esistente (Modifica)
+  Future<int> updateIngrediente(String nomeTabella, Ingredienti ingrediente) async {
+    if (ingrediente.id == null) {
+      print("⚠️ ERRORE: Impossibile aggiornare '${ingrediente.nome}', l'ID è null!");
+      return 0; // Interrompiamo la funzione per evitare l'errore rosso
+    }
+    final db = await instance.database;
+    print("200");
+    return await db.update(
+      nomeTabella,
+      ingrediente.toMap(),
+      where: 'id = ?',
+      whereArgs: [ingrediente.id],
+    );
+  }
+
+  // Elimina un ingrediente (Cestino)
+  Future<int> deleteIngrediente(String nomeTabella, int id) async {
+    final db = await instance.database;
+    print("200");
+    return await db.delete(
+      nomeTabella,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // 🟢 LEGGE LA CACHE DELLA DISPENSA DEL GIORNO ATTUALE
