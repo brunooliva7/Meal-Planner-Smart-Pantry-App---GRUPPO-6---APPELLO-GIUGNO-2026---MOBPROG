@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:weekbite/main.dart';
 import 'package:weekbite/screens/ingredienti_model.dart';
-import 'package:weekbite/database/database_helper.dart'; 
+import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/search_dispensa.dart'; 
 
 final Map<String, String> categoriaM = {
@@ -235,6 +235,17 @@ class IngredientiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final oggi = DateTime.now();
+    final soloOggi = DateTime(oggi.year, oggi.month, oggi.day);
+    final soloScadenza = DateTime(ingrediente.dataScadenza.year, ingrediente.dataScadenza.month, ingrediente.dataScadenza.day);
+    
+    final differenzaGiorni = soloScadenza.difference(soloOggi).inDays;
+    
+    final bool scadeAbreve = differenzaGiorni <= 3;
+    
+    final Color coloreData = scadeAbreve ? Colors.red : Colors.grey[600]!;
+    final FontWeight pesoData = scadeAbreve ? FontWeight.bold : FontWeight.normal;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -263,9 +274,17 @@ class IngredientiCard extends StatelessWidget {
                       ingrediente.nome, 
                       style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
                     ),
-                    subtitle: Text(
-                      "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • ${ingrediente.dataScadenza.day}/${ingrediente.dataScadenza.month}/${ingrediente.dataScadenza.year}", 
-                      style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13)
+                    subtitle: Text.rich(
+                      TextSpan(
+                        style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13),
+                        children: [
+                          TextSpan(text: "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • "),
+                          TextSpan(
+                            text: "${ingrediente.dataScadenza.day.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.month.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.year}",
+                            style: TextStyle(color: coloreData, fontWeight: pesoData), // 🔴 Diventa rosso se <= 3 giorni
+                          ),
+                        ],
+                      ),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,

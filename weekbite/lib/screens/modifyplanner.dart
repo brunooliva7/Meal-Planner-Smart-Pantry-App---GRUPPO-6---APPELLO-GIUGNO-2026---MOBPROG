@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'recipe_model.dart'; 
-import '../database/database_helper.dart'; 
+import '../services/database_helper.dart'; 
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color kCardBackground = Colors.white;

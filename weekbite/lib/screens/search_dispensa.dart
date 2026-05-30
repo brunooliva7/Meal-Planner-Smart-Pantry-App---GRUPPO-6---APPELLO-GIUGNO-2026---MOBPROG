@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:weekbite/database/database_helper.dart'; 
+import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/ingredienti_model.dart'; 
 import 'package:weekbite/screens/dispensa.dart'; 
 import 'package:weekbite/main.dart';
@@ -24,6 +24,14 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
   ];
   String selectedCategoria = 'Tutte le categorie';
 
+  final List<String> scadenzaOptions = [
+    'Tutte le scadenze',
+    'Scaduti',
+    'In scadenza (7 gg)',
+    'Validi'
+  ];
+  String selectedScadenza = 'Tutte le scadenze';
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +44,7 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
     });
     String queryTesto = _searchController.text.trim();
 
-    if (queryTesto.isEmpty && selectedCategoria == 'Tutte le categorie') {
+    if (queryTesto.isEmpty && selectedCategoria == 'Tutte le categorie' && selectedScadenza == 'Tutte le scadenze') {
       if (mounted) {
         setState(() {
           searchResults = []; 
@@ -63,6 +71,28 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
 
       List<Ingredienti> parsedResults = res.map((row) => Ingredienti.fromMap(row)).toList();
 
+      if (selectedScadenza != 'Tutte le scadenze') {
+        DateTime oggi = DateTime.now();
+        // Rimuoviamo le ore e i minuti, ci interessano solo i giorni!
+        DateTime soloOggi = DateTime(oggi.year, oggi.month, oggi.day);
+
+        parsedResults = parsedResults.where((ing) {
+          DateTime dataIng = DateTime(ing.dataScadenza.year, ing.dataScadenza.month, ing.dataScadenza.day);
+          
+          if (selectedScadenza == 'Scaduti') {
+            return dataIng.isBefore(soloOggi); // Scadenza precedente a oggi
+          } else if (selectedScadenza == 'In scadenza (7 gg)') {
+            // Tra oggi e i prossimi 7 giorni compresi
+            return (dataIng.isAtSameMomentAs(soloOggi) || dataIng.isAfter(soloOggi)) && 
+                   dataIng.isBefore(soloOggi.add(const Duration(days: 8)));
+          } else if (selectedScadenza == 'Validi') {
+            return dataIng.isAfter(soloOggi.add(const Duration(days: 7))); // Oltre i 7 giorni
+          }
+          return true;
+        }).toList();
+      }
+
+
       if (mounted) {
         setState(() {
           searchResults = parsedResults;
@@ -77,7 +107,7 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isFilterActive = selectedCategoria != 'Tutte le categorie';
+    bool isFilterActive = selectedCategoria != 'Tutte le categorie' && selectedScadenza != 'Tutte le scadenze';
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -153,6 +183,31 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
                       onChanged: (String? newValue) {
                         if (newValue != null) {
                           setState(() => selectedCategoria = newValue);
+                          _performLocalSearch(); 
+                        }
+                      },
+                    ),
+                  ),
+                ),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: selectedScadenza == 'Tutte le scadenze' ? Colors.grey[100] : primaryGreen.withOpacity(0.1),
+                    border: Border.all(color: selectedScadenza == 'Tutte le scadenze' ? Colors.grey[300]! : primaryGreen),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedScadenza,
+                      icon: Icon(Icons.keyboard_arrow_down, color: selectedScadenza == 'Tutte le scadenze' ? Colors.grey : primaryGreen),
+                      style: GoogleFonts.montserrat(fontSize: 14, color: selectedScadenza == 'Tutte le scadenze' ? Colors.black87 : primaryGreen, fontWeight: FontWeight.w600),
+                      items: scadenzaOptions.map((String val) {
+                        return DropdownMenuItem<String>(value: val, child: Text(val));
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() => selectedScadenza = newValue);
                           _performLocalSearch(); 
                         }
                       },

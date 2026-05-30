@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart'; // 🌐 LIBRERIA GOOGLE UFFICIALE
-import '../database/database_helper.dart'; 
+import '../services/database_helper.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);

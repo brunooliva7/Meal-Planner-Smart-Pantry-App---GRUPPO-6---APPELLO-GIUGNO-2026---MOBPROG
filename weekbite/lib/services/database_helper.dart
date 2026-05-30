@@ -472,8 +472,8 @@ class DatabaseHelper {
   // Aggiorna un ingrediente esistente (Modifica)
   Future<int> updateIngrediente(String nomeTabella, Ingredienti ingrediente) async {
     if (ingrediente.id == null) {
-      print("⚠️ ERRORE: Impossibile aggiornare '${ingrediente.nome}', l'ID è null!");
-      return 0; // Interrompiamo la funzione per evitare l'errore rosso
+      print("Errore");
+      return 0; 
     }
     final db = await instance.database;
     print("200");
