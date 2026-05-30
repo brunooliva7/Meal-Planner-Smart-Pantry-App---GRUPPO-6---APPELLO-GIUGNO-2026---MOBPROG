@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:299889078137:android:064e0187be050b3fb449a8",
+        "mobilesdk_app_id": "1:299889078137:android:810ec1ee342e5743b449a8",
         "android_client_info": {
-          "package_name": "com.android.application"
+          "package_name": "com.example.weekbite"
         }
       },
       "oauth_client": [],
@@ -26,9 +26,9 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:299889078137:android:810ec1ee342e5743b449a8",
+        "mobilesdk_app_id": "1:299889078137:android:2a4a3318a9a2ed3db449a8",
         "android_client_info": {
-          "package_name": "com.example.weekbite"
+          "package_name": "it.gruppo6.weekbite"
         }
       },
       "oauth_client": [],
