@@ -306,12 +306,19 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                                           children: listRecipes.map((recipe) {
                                             return InkWell(
                                               onTap: () {
+                                
+                                                // Se l'ID è negativo (inserito a mano), passiamo solo title ed id in modo che 
+                                                // RecipeDetailScreen usi il title come chiave per l'API online di Spoonacular.
+                                                final Map<String, dynamic> passedData = recipe.id < 0 
+                                                  ? { 'id': recipe.id, 'title': recipe.title, 'image': '' }
+                                                  : recipe.toMap();
+
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
                                                     builder: (_) => RecipeDetailScreen(
-                                                      recipeData: recipe.toMap(),
-                                                      isFromApi: recipe.id < 0,
+                                                      recipeData: passedData,
+                                                      isFromApi: recipe.id < 0, 
                                                     ),
                                                   ),
                                                 );

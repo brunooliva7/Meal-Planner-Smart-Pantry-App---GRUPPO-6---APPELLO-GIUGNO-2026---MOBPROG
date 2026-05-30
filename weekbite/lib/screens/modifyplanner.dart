@@ -91,7 +91,10 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
           )
         ],
       ),
-    ).then((_) => editPiattoController.dispose());
+    ).then((_) {
+      FocusScope.of(context).unfocus();
+      editPiattoController.dispose();
+    });
   }
 
   void _showAddPiattoDialog(String mealType) async {
@@ -152,7 +155,10 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
           ],
         ),
       ),
-    ).then((_) => piattoController.dispose());
+    ).then((_) {
+      FocusScope.of(context).unfocus();
+      piattoController.dispose();
+    });
   }
 
   Future<void> _updatePlannerInDatabase() async {
