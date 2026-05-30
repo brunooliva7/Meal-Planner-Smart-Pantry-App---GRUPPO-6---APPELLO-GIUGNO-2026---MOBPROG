@@ -363,6 +363,33 @@ class DatabaseHelper {
     );
   }
 
+  // 🟢 SALVA LA CACHE DELLA DISPENSA
+  Future<void> savePantryCache(List<dynamic> recipes, String dateStr) async {
+    final db = await instance.database;
+    // Pulisce la cache dei giorni precedenti
+    await db.delete('api_cache', where: 'cache_date != ? AND cache_type = ?', whereArgs: [dateStr, 'pantry']);
+    
+    for (var recipe in recipes) {
+      await db.insert('api_cache', {
+        'recipe_id': recipe['id'] ?? 0,
+        'cache_date': dateStr,
+        'cache_type': 'pantry', // <-- Tag specifico per non mischiarle con le virali
+        'data_json': jsonEncode(recipe),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  // 🟢 LEGGE LA CACHE DELLA DISPENSA DEL GIORNO ATTUALE
+  Future<List<dynamic>> getPantryCache(String dateStr) async {
+    final db = await instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'api_cache',
+      where: 'cache_date = ? AND cache_type = ?',
+      whereArgs: [dateStr, 'pantry'],
+    );
+    return maps.map((e) => jsonDecode(e['data_json'] as String)).toList();
+  }
+
   // ==========================================================
   // CHIUSURA DATABASE
   // ==========================================================
