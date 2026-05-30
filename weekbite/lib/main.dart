@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/dispensa.dart';
+import 'screens/lista_spesa.dart';
 import 'screens/ricette.dart'; 
 import 'screens/main_screen.dart';
 import 'screens/mealplanner.dart'; 
@@ -85,6 +86,7 @@ class _BaseLayoutState extends State<BaseLayout> {
       Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))), 
       const DispensaScreen(), 
       const UserProfileScreen(), 
+      const ListaIngredientiScreen(), 
     ];
   }
 
@@ -147,6 +149,7 @@ class _BaseLayoutState extends State<BaseLayout> {
               _buildNavItem(Icons.home_filled, 0),
               _buildNavItem(Icons.calendar_month, 1),
               _buildNavItem(Icons.add_box_outlined, 2, size: 28),
+              _buildNavItem(Icons.checklist_rtl_rounded, 5, size: 28),
               _buildNavItem(Icons.kitchen, 3),
               _buildNavItem(Icons.person_outline, 4),
             ],

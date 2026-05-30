@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:weekbite/main.dart';
 import 'package:weekbite/screens/ingredienti_model.dart';
 import 'package:weekbite/database/database_helper.dart'; 
+import 'package:weekbite/screens/search_dispensa.dart'; 
 
 final Map<String, String> categoriaM = {
   'Pasta': '🍝',
@@ -23,7 +24,7 @@ class DispensaScreen extends StatefulWidget{
 }
 
 List<Ingredienti> dispensa = [];
-List<Ingredienti> lista = [];
+
 
 class _DispensaScreenState extends State<DispensaScreen>{
   @override
@@ -34,11 +35,11 @@ class _DispensaScreenState extends State<DispensaScreen>{
 
   Future<void> _caricaDatiDalDatabase() async {
     final dispensaDb = await DatabaseHelper.instance.getIngredienti('dispensa');
-    final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa');
+    //final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa');
     
     setState(() {
       dispensa = dispensaDb;
-      lista = listaDb;
+      //lista = listaDb;
     });
   }
 
@@ -61,15 +62,20 @@ class _DispensaScreenState extends State<DispensaScreen>{
             child: Row(
               children: [
                 Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(30),
-                    onTap: (){
-                      //funzione di ricerca
+                  child: GestureDetector(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SearchDispensaScreen(),
+                        ),
+                      );
+                      setState(() {}); 
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color.fromARGB(255, 245, 245, 245),
+                        color: const Color.fromARGB(255, 255, 255, 255),
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: const[
                           BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
@@ -99,14 +105,18 @@ class _DispensaScreenState extends State<DispensaScreen>{
                   ),
                   child: IconButton(
                     onPressed: () async { 
-                      await Navigator.push(
+                      final risultato = await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const ListaIngredientiScreen(), 
+                          builder: (context) => const FormIngredientiScreen(), 
                         ),
                       );
-                      
-                      setState(() {}); 
+                      if (risultato != null && risultato is Ingredienti) {
+                        final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('dispensa', risultato);
+                        setState(() {
+                          dispensa.add(ingredienteSalvato);
+                        });
+                      }
                     },
                     icon: const Icon(Icons.playlist_add_rounded, color: Colors.white),
                   ),
@@ -170,11 +180,10 @@ class _DispensaScreenState extends State<DispensaScreen>{
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Icona decorativa
                         Container(
                           padding: const EdgeInsets.all(15),
                           decoration: BoxDecoration(
-                            color: primaryGreen.withOpacity(0.1), // Sfondo verdino chiaro
+                            color: primaryGreen.withOpacity(0.1), 
                             shape: BoxShape.circle,
                           ),
                           child: Text(
@@ -188,7 +197,6 @@ class _DispensaScreenState extends State<DispensaScreen>{
                         ),
                         const SizedBox(height: 12),
                         
-                        // Nome della Categoria
                         Text(
                           categoria, 
                           textAlign: TextAlign.center,
@@ -211,14 +219,14 @@ class _DispensaScreenState extends State<DispensaScreen>{
   }
 }
 
-class _IngredientiCard extends StatelessWidget {
+class IngredientiCard extends StatelessWidget {
   final Ingredienti ingrediente;
   final VoidCallback onTap;
   final VoidCallback? onElimina;
   final VoidCallback? onModifica;
   final Widget? leadingWidget;
 
-  const _IngredientiCard({required this.ingrediente, 
+  const IngredientiCard({required this.ingrediente, 
     required this.onTap, 
     required this.onElimina, 
     required this.onModifica,
@@ -285,7 +293,7 @@ class _IngredientiCard extends StatelessWidget {
     );
   }
 }
-
+/*
 class ListaIngredientiScreen extends StatefulWidget{
   const ListaIngredientiScreen({super.key});
 
@@ -325,7 +333,7 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                 separatorBuilder: (_, __) => const SizedBox(height: 20),
                 itemBuilder: (context, i) {
                   final listaspesa = lista[i];
-                  return _IngredientiCard(
+                  return IngredientiCard(
                     ingrediente: listaspesa,
                     onTap: () { /* ... */ },
                     onModifica: () async {
@@ -348,11 +356,10 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                         lista.removeAt(i);
                       });
                     },
-                    // PASSIAMO IL PALLINO: appare solo qui!
                     leadingWidget: Checkbox(
                       value: false, 
                       activeColor: primaryGreen,
-                      shape: const CircleBorder(), // Lo rende un cerchietto rotondo
+                      shape: const CircleBorder(), 
                       onChanged: (bool? completato) async {
                         if (completato == true) {
                           await DatabaseHelper.instance.deleteIngrediente('lista_spesa', listaspesa.id!);
@@ -393,7 +400,7 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
     );
   }
 }
-
+*/
 class FormIngredientiScreen extends StatefulWidget{
   final Ingredienti? ingredienteEsistente; 
 
@@ -416,18 +423,17 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
 
   DateTime? _dataSelezionata; 
 
-  // Funzione per aprire il calendario
   Future<void> _scegliData(BuildContext context) async {
     final DateTime? data = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now(), // Imposta DateTime(2000) se vuoi permettere date passate
+      firstDate: DateTime.now(), 
       lastDate: DateTime(2100),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: primaryGreen, // Usa il tuo verde per il calendario
+              primary: primaryGreen, 
               onPrimary: Colors.white,
               onSurface: Colors.black,
             ),
@@ -501,16 +507,15 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
               DropdownMenu<String>(
                 initialSelection: _unitaSelezionata,
                 label: const Text("Unità di misura"),
-                // expandedInsets a zero fa in modo che il menù si allarghi 
-                // esattamente come i TextField sopra e sotto di lui
+                
                 expandedInsets: EdgeInsets.zero, 
-                menuHeight: 200, // Limita l'altezza massima per non fargli occupare tutto lo schermo
+                menuHeight: 200, 
                 dropdownMenuEntries: _unitaDiMisura.map((String unita) {
                   return DropdownMenuEntry<String>(
                     value: unita,
                     label: unita,
                     style: MenuItemButton.styleFrom(
-                      textStyle: GoogleFonts.montserrat(), // Usa il tuo font anche dentro il menù
+                      textStyle: GoogleFonts.montserrat(), 
                     ),
                   );
                 }).toList(),
@@ -527,13 +532,13 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                 initialSelection: _categoriaSelezionata,
                 label: const Text("Categoria"),
                 expandedInsets: EdgeInsets.zero, 
-                menuHeight: 200, // Limita l'altezza massima per non fargli occupare tutto lo schermo
+                menuHeight: 200,
                 dropdownMenuEntries: _categoria.map((String categoria) {
                   return DropdownMenuEntry<String>(
                     value: categoria,
                     label: categoria,
                     style: MenuItemButton.styleFrom(
-                      textStyle: GoogleFonts.montserrat(), // Usa il tuo font anche dentro il menù
+                      textStyle: GoogleFonts.montserrat(), 
                     ),
                   );
                 }).toList(),
@@ -634,7 +639,7 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                       child: Text(
                         "Conferma",
                         style: GoogleFonts.montserrat(
-                          color: Colors.white, // Usa il tuo grigio
+                          color: Colors.white, 
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
                         ),
@@ -712,7 +717,7 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, i) {
                   final ingrediente = ingredientiFiltrati[i];
-                  return _IngredientiCard(
+                  return IngredientiCard(
                     ingrediente: ingrediente,
                     onTap: () {
                     },

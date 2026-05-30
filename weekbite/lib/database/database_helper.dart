@@ -420,8 +420,12 @@ class DatabaseHelper {
 
   Future<Ingredienti> addIngrediente(String nomeTabella, Ingredienti ingrediente) async {
     final db = await instance.database;
-    final id = await db.insert(nomeTabella, ingrediente.toMap());
-    ingrediente.id = id; // Assegna l'ID generato dal DB
+
+    final ingredienteMap = ingrediente.toMap();
+    ingredienteMap.remove('id'); 
+    
+    final id = await db.insert(nomeTabella, ingredienteMap);
+    ingrediente.id = id;
     print("200");
     return ingrediente;
   }
