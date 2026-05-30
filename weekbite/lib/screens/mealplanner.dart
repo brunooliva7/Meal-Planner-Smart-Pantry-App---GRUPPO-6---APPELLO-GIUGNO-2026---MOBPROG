@@ -28,8 +28,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
   String? _selectedPlannerName;
   Map<String, List<String>> _dayMealTypes = {};
   Map<String, Map<String, List<RecipeModel>>> _associatedRecipes = {};
-  int _currentPlannerId = 0; // 🌟 Recuperiamo l'ID del planner corrente per la modifica
-  
+  int _currentPlannerId = 0;
   bool _isLoading = true;
 
   final Map<String, String> _mealEmojis = {
@@ -39,7 +38,14 @@ class MealPlanScreenState extends State<MealPlanScreen> {
   @override
   void initState() {
     super.initState();
+    _setTodayDay();
     _loadPlannerData();
+  }
+  void _setTodayDay() {
+    int weekday = DateTime.now().weekday; // Lunedì = 1, Domenica = 7
+    setState(() {
+      _selectedDay = _days[weekday - 1];
+    });
   }
   
   // 🌟 METODO PUBBLICO richiamato da main.dart per aggiornare il dropdown quando si crea un nuovo planner
@@ -319,7 +325,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                                                   // Mostriamo un piccolo indicatore di caricamento sopra l'app per far capire che sta traducendo
                                                   ScaffoldMessenger.of(context).showSnackBar(
                                                     SnackBar(
-                                                      content: Text("Conversione e ricerca della ricetta affine per '$searchTitle'...", style: GoogleFonts.montserrat()),
+                                                      content: Text(" ricerca della ricetta affine per '$searchTitle'...", style: GoogleFonts.montserrat()),
                                                       duration: const Duration(milliseconds: 800),
                                                       backgroundColor: primaryGreen,
                                                     ),
@@ -338,7 +344,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                                                 if (!mounted) return;
 
                                                 final Map<String, dynamic> passedData = recipe.id < 0 
-                                                  ? { 'id': recipe.id, 'title': searchTitle, 'image': '' }
+                                                  ? { 'id': recipe.id, 'title': searchTitle, 'image': '', 'originalTitleIt': recipe.title }
                                                   : recipe.toMap();
 
                                                 Navigator.push(
@@ -350,7 +356,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                                                     ),
                                                   ),
                                                 );
-                                              },
+                                              },                     
                                               borderRadius: BorderRadius.circular(12),
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
