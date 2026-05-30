@@ -7,6 +7,7 @@ import 'screens/mealplanner.dart';
 import 'screens/createplanner.dart';
 import 'screens/user_profile_screen.dart';
 import 'screens/auth_screen.dart'; 
+import 'screens/create_recipe_screen.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -194,6 +195,17 @@ class _BaseLayoutState extends State<BaseLayout> {
                   ],
                 ),
               ),
+              PopupMenuItem(
+                value: 'create_recipe', // 🌟 NUOVA OPZIONE
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.restaurant_menu, color: primaryGreen, size: 20),
+                    const SizedBox(width: 10),
+                    Text('Crea Ricetta', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
+                  ],
+                ),
+              ),
             ],
           );
 
@@ -213,6 +225,15 @@ class _BaseLayoutState extends State<BaseLayout> {
               // Chiama il metodo pubblico della chiave per ricaricare il Dropdown dal DB!
               _mealPlanKey.currentState?.forceReloadFromDb();
             }
+          }else if (result == 'create_recipe') {
+             if (!isUserLogged) {
+                // Rimanda al login se necessario, o aprilo direttamente
+             } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CreateRecipeScreen()),
+                );
+             }
           }
           return;
         }
