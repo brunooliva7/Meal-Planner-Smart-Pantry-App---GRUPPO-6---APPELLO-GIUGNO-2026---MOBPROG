@@ -136,15 +136,25 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   // ==========================================================
-  // 🌐 LOGICA DI AUTENTICAZIONE CON GOOGLE
+  // 🌐 LOGICA DI AUTENTICAZIONE CON GOOGLE CORRETTA
   // ==========================================================
   Future<void> _handleGoogleAuth() async {
     setState(() => isLoading = true);
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      
+      // 🟢 FORZATURA FONDAMENTALE: Sconnetti prima qualsiasi sessione Google rimasta appesa
+      // per costringere Android/iOS a mostrare la finestra di selezione dell'account!
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+      }
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       
       if (googleUser != null) {
         final db = await DatabaseHelper.instance.database;
+        
+        // Controlliamo se l'utente esiste già nel DB locale tramite email
         final existingUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
         
         if (existingUser.isEmpty) {
@@ -157,26 +167,26 @@ class _AuthScreenState extends State<AuthScreen> {
           });
         }
 
-        final prefs = await SharedPreferences.getInstance();
-        
-        // Risincronizza l'ID per sicurezza dal database locale SQLite
+        // Risincronizziamo l'ID corretto leggendolo dal database SQLite
         final syncUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
         if (syncUser.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          // Salviamo l'ID numerico reale di SQLite nelle SharedPreferences
           await prefs.setString('logged_in_uid', syncUser.first['id'].toString());
         }
 
         if (mounted) {
-          Navigator.pop(context, true);
+          Navigator.pop(context, true); // Ritorna true al BaseLayout per aggiornare l'interfaccia
         }
       }
     } catch (error) {
       print("Errore Google Sign-In: $error");
-      _showSnackBar("Errore di accesso con Google", isError: true);
+      _showSnackBar("Errore di accesso con Google. Riprova.", isError: true);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(

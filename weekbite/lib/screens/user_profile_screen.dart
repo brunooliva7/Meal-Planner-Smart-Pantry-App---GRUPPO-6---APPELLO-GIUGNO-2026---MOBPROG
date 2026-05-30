@@ -8,6 +8,7 @@ import 'stats_screen.dart';
 import 'recipe.dart'; 
 import 'package:sqflite/sqflite.dart'; // Richiesto per ConflictAlgorithm
 import '../services/database_helper.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -136,28 +137,48 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   // 🟢 LOGOUT COMPLETO: Risolve il bug della sovrapposizione dati tra profili differenti
+ // 🟢 LOGOUT COMPLETO ED ANTICORRUZIONE DATI
   Future<void> _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Svuota completamente le SharedPreferences per eliminare residui del vecchio ID
+    try {
+      // 1. Svuota completamente la memoria fissa del telefono
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); 
 
-    setState(() {
-      isUserLogged = false;
-      nome = 'Ospite';
-      nickname = 'utente_guest';
-      peso = '';
-      altezza = '';
-      bio = '';
-      imagePath = '';
-      favoriteRecipes = [];
-      myCreatedRecipes = [];
-      savedOfflineRecipes = [];
-    });
+      // 2. Forza la disconnessione dal motore interno di Google Sign-In
+      // Questo impedirà l'accesso automatico silenzioso con il vecchio account!
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+        await googleSignIn.disconnect(); // Rimuove l'accoppiamento temporaneo sul telefono
+      }
+    } catch (e) {
+      print("Errore durante la disconnessione Google nativa: $e");
+    }
 
+    // 3. Ripristina completamente lo stato grafico locale ai valori di default (Guest)
     if (mounted) {
+      setState(() {
+        isUserLogged = false;
+        nome = 'Ospite';
+        nickname = 'utente_guest';
+        peso = '';
+        altezza = '';
+        bio = '';
+        imagePath = '';
+        favoriteRecipes = [];
+        myCreatedRecipes = [];
+        savedOfflineRecipes = [];
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sessione chiusa correttamente!', style: GoogleFonts.montserrat()), backgroundColor: Colors.orangeAccent),
+        SnackBar(
+          content: Text('Sessione chiusa. Cambiamento profilo effettuato!', style: GoogleFonts.montserrat()), 
+          backgroundColor: Colors.orangeAccent
+        ),
       );
-      Navigator.pop(context, true); // Comunica il cambio di stato al BaseLayout
+      
+      // Ritorniamo true al main.dart per forzare la ricostruzione dei widget della Home
+      Navigator.pop(context, true); 
     }
   }
 
