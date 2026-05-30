@@ -44,20 +44,12 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
     });
     String queryTesto = _searchController.text.trim();
 
-    if (queryTesto.isEmpty && selectedCategoria == 'Tutte le categorie' && selectedScadenza == 'Tutte le scadenze') {
-      if (mounted) {
-        setState(() {
-          searchResults = []; 
-          isLoading = false;
-        });
-      }
-      return; 
-    }
-
     try {
       final db = await DatabaseHelper.instance.database;
       List<Map<String, dynamic>> res;
-      if (queryTesto.isEmpty && selectedCategoria != 'Tutte le categorie') {
+      if (queryTesto.isEmpty && selectedCategoria == 'Tutte le categorie') {
+        res = await db.query('dispensa'); 
+      } else if (queryTesto.isEmpty && selectedCategoria != 'Tutte le categorie') {
         res = await db.query('dispensa', where: 'categoria = ?', whereArgs: [selectedCategoria]);
       } else if (queryTesto.isNotEmpty && selectedCategoria == 'Tutte le categorie') {
         res = await db.query('dispensa', where: 'nome LIKE ?', whereArgs: ['%$queryTesto%']);
@@ -107,7 +99,7 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isFilterActive = selectedCategoria != 'Tutte le categorie' && selectedScadenza != 'Tutte le scadenze';
+    bool isFilterActive = selectedCategoria != 'Tutte le categorie' || selectedScadenza != 'Tutte le scadenze';
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -228,6 +220,7 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
                       onPressed: () {
                         setState(() {
                           selectedCategoria = 'Tutte le categorie';
+                          selectedScadenza = 'Tutte le scadenze';
                         });
                         _performLocalSearch(); 
                       },

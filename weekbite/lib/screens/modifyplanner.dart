@@ -179,7 +179,8 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
     return Scaffold(
       backgroundColor: kBackgroundClear,
       appBar: AppBar(
-        title: Text("Modifica Meal Planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark)),
+        // 🟢 PREVENZIONE OVERFLOW: Titolo compresso ed abbreviato se lo schermo è piccolo
+        title: Text("Modifica Planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark)),
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: primaryGreen, size: 20), onPressed: () => Navigator.pop(context, false)),
       ),
@@ -191,7 +192,13 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-                child: TextField(controller: _plannerNameController, style: GoogleFonts.montserrat(fontSize: 16, color: kTextDark, fontWeight: FontWeight.w600), decoration: const InputDecoration(border: InputBorder.none, isDense: true)),
+                // 🟢 PREVENZIONE OVERFLOW: maxLines null e wrap di input text se il nome è chilometrico
+                child: TextField(
+                  controller: _plannerNameController, 
+                  maxLines: null,
+                  style: GoogleFonts.montserrat(fontSize: 16, color: kTextDark, fontWeight: FontWeight.w600), 
+                  decoration: const InputDecoration(border: InputBorder.none, isDense: true)
+                ),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -227,7 +234,18 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                       children: [
                         ListTile(
                           leading: Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
-                          title: Flexible(child: Text(mealType, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark), overflow: TextOverflow.ellipsis)),
+                          // 🟢 FISSA BUG INTERNO E PREVIENE OVERFLOW: Inserito dentro una Row reale nativa del ListTile per impedire crash strutturali
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  mealType, 
+                                  style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark), 
+                                  overflow: TextOverflow.ellipsis
+                                )
+                              ),
+                            ],
+                          ),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -245,7 +263,14 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Flexible(child: Text(recipe.title, style: GoogleFonts.montserrat(fontSize: 13, color: kTextDark), overflow: TextOverflow.ellipsis)),
+                                            // 🟢 PREVENZIONE OVERFLOW: I piatti lunghi dentro il Wrap non spingono fuori la X di eliminazione
+                                            Flexible(
+                                              child: Text(
+                                                recipe.title, 
+                                                style: GoogleFonts.montserrat(fontSize: 13, color: kTextDark), 
+                                                overflow: TextOverflow.ellipsis
+                                              )
+                                            ),
                                             const SizedBox(width: 8),
                                             GestureDetector(onTap: () => setState(() => _associatedRecipes[_selectedDay]![mealType]!.remove(recipe)), child: const Icon(Icons.close, size: 14))
                                           ],
