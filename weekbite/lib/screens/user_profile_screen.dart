@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart'; 
 import 'stats_screen.dart';
 import 'recipe.dart'; 
-import '../database/database_helper.dart';
 import 'package:sqflite/sqflite.dart'; // Richiesto per ConflictAlgorithm
 import '../services/database_helper.dart';
 
