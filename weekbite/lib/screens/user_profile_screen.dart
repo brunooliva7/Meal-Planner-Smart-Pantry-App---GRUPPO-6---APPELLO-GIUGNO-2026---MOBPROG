@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart'; // 🟢 Import per la galleria
 import 'stats_screen.dart';
-import '../database/database_helper.dart'; // <-- IMPORT DEL DATABASE DEL TEAM
+import '../database/database_helper.dart';
 
 // COLORI UFFICIALI DEL GRUPPO
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
@@ -19,14 +21,19 @@ class UserProfileScreen extends StatefulWidget {
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
   // Stati Utente
-  String nickname = 'utente_misterioso';
-  String nome = 'Nome non impostato';
+  bool isUserLogged = false; // 🟢 Controlla se è Guest o Loggato
+  bool isEditingProfile = false; // 🟢 Sostituisce isEditingStats per gestire TUTTO
+  bool isLoading = true; 
+
+  String nickname = 'utente_guest';
+  String nome = 'Ospite';
   String peso = '';
   String altezza = '';
   String bio = '';
-  bool isEditingStats = false;
-  bool isLoading = true; // Mostra caricamento mentre legge la memoria
+  String imagePath = ''; // 🟢 Percorso della foto profilo locale
 
+  final TextEditingController _nicknameController = TextEditingController();
+  final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _pesoController = TextEditingController();
   final TextEditingController _altezzaController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
@@ -46,46 +53,87 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // 1. Carica i dati del profilo
+    // 1. Controllo se l'utente è loggato
+    final String? uid = prefs.getString('logged_in_uid');
+    bool checkLogged = uid != null && uid.isNotEmpty;
+
+    // 2. Carica i dati del profilo
     setState(() {
-      peso = prefs.getString('user_peso') ?? '';
-      altezza = prefs.getString('user_altezza') ?? '';
-      bio = prefs.getString('user_bio') ?? '';
+      isUserLogged = checkLogged;
+
+      if (isUserLogged) {
+        nickname = prefs.getString('user_nickname') ?? 'nuovo_utente';
+        nome = prefs.getString('user_nome') ?? 'Nome non impostato';
+        peso = prefs.getString('user_peso') ?? '';
+        altezza = prefs.getString('user_altezza') ?? '';
+        bio = prefs.getString('user_bio') ?? '';
+        imagePath = prefs.getString('user_pic') ?? '';
+      } else {
+        // Valori di default per i Guest
+        nickname = 'ospite_curioso';
+        nome = 'Utente Non Registrato';
+        peso = ''; altezza = ''; bio = ''; imagePath = '';
+      }
+
+      _nicknameController.text = nickname;
+      _nomeController.text = nome;
       _pesoController.text = peso;
       _altezzaController.text = altezza;
       _bioController.text = bio;
     });
 
-    // 2. Cerca le ricette preferite nel Database SQLite del team
-    final List<Map<String, dynamic>> favs = await DatabaseHelper.instance.getAllFavorites();
-    setState(() {
-      ricettePreferite = favs;
-    });
+    // 3. Cerca le ricette preferite nel Database
+    if (isUserLogged) {
+      final List<Map<String, dynamic>> favs = await DatabaseHelper.instance.getAllFavorites();
+      setState(() {
+        ricettePreferite = favs;
+      });
 
-    // 3. Cerca eventuali ricette create dall'utente
-    final String? personalRecipesStr = prefs.getString('personal_recipes');
-    if (personalRecipesStr != null) {
-      ricettePersonali = json.decode(personalRecipesStr);
+      final String? personalRecipesStr = prefs.getString('personal_recipes');
+      if (personalRecipesStr != null) {
+        ricettePersonali = json.decode(personalRecipesStr);
+      }
     }
 
     setState(() => isLoading = false);
   }
 
-  Future<void> _saveProfileStats() async {
+  // 🟢 SALVA TUTTE LE MODIFICHE DEL PROFILO
+  Future<void> _saveFullProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_peso', _pesoController.text);
-    await prefs.setString('user_altezza', _altezzaController.text);
+    await prefs.setString('user_nickname', _nicknameController.text.trim());
+    await prefs.setString('user_nome', _nomeController.text.trim());
+    await prefs.setString('user_peso', _pesoController.text.trim());
+    await prefs.setString('user_altezza', _altezzaController.text.trim());
+    await prefs.setString('user_bio', _bioController.text.trim());
+    await prefs.setString('user_pic', imagePath);
+
     setState(() {
-      peso = _pesoController.text;
-      altezza = _altezzaController.text;
-      isEditingStats = false;
+      nickname = _nicknameController.text.trim();
+      nome = _nomeController.text.trim();
+      peso = _pesoController.text.trim();
+      altezza = _altezzaController.text.trim();
+      bio = _bioController.text.trim();
+      isEditingProfile = false;
     });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Profilo aggiornato!", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+      );
+    }
   }
 
-  Future<void> _saveBio(String newBio) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_bio', newBio);
-    setState(() => bio = newBio);
+  // 🟢 SELEZIONA FOTO DALLA GALLERIA
+  Future<void> _pickImage() async {
+    if (!isUserLogged || !isEditingProfile) return;
+
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        imagePath = pickedFile.path;
+      });
+    }
   }
 
   @override
@@ -103,71 +151,116 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ==========================================================
+              // PULSANTE MODIFICA IN ALTO (Solo se loggato)
+              // ==========================================================
+              if (isUserLogged)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      if (isEditingProfile) {
+                        _saveFullProfile(); // Salva se stava modificando
+                      } else {
+                        setState(() => isEditingProfile = true); // Entra in modalità modifica
+                      }
+                    },
+                    icon: Icon(isEditingProfile ? Icons.check : Icons.edit, color: primaryGreen, size: 18),
+                    label: Text(
+                      isEditingProfile ? "Salva Profilo" : "Modifica Profilo",
+                      style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+
+              // ==========================================================
               // HEADER: Foto e Dati Utente
               // ==========================================================
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primaryGreen, width: 2),
+                  // 🟢 FOTO PROFILO CLICCABILE
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 80, height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: primaryGreen, width: 2),
+                            image: imagePath.isNotEmpty 
+                                ? DecorationImage(image: FileImage(File(imagePath)), fit: BoxFit.cover)
+                                : null,
+                          ),
+                          child: imagePath.isEmpty ? const Icon(Icons.person, size: 40, color: primaryGreen) : null,
+                        ),
+                        if (isEditingProfile)
+                          Positioned(
+                            bottom: 0, right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(color: primaryGreen, shape: BoxShape.circle),
+                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: const Icon(Icons.person, size: 40, color: primaryGreen),
                   ),
                   const SizedBox(width: 20),
+                  
+                  // 🟢 DATI ANAGRAFICI
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '@$nickname',
-                          style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                        ),
-                        Text(
-                          nome,
-                          style: GoogleFonts.montserrat(fontSize: 14, color: Colors.grey[600]),
-                        ),
-                        const SizedBox(height: 8),
+                        isEditingProfile
+                            ? TextField(
+                                controller: _nicknameController,
+                                style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                                decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.only(bottom: 4), hintText: "Nickname"),
+                              )
+                            : Text(
+                                '@$nickname',
+                                style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                              ),
+                        
+                        const SizedBox(height: 4),
+                        
+                        isEditingProfile
+                            ? TextField(
+                                controller: _nomeController,
+                                style: GoogleFonts.montserrat(fontSize: 14, color: Colors.grey[700]),
+                                decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.only(bottom: 4), hintText: "Nome e Cognome"),
+                              )
+                            : Text(
+                                nome,
+                                style: GoogleFonts.montserrat(fontSize: 14, color: Colors.grey[600]),
+                              ),
+                        
+                        const SizedBox(height: 12),
 
-                        // INSERIMENTO DATI FISICI MANUALE E PERSISTENTE
-                        isEditingStats 
+                        // DATI FISICI
+                        isEditingProfile 
                           ? Row(
                               children: [
                                 _buildMiniInput("Peso (kg)", _pesoController),
                                 const SizedBox(width: 8),
                                 _buildMiniInput("Alt (cm)", _altezzaController),
-                                const SizedBox(width: 8),
-                                InkWell(
-                                  onTap: _saveProfileStats,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: primaryGreen,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text("OK", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                                  ),
-                                )
                               ],
                             )
-                          : GestureDetector(
-                              onTap: () => setState(() => isEditingStats = true),
-                              child: Row(
-                                children: [
-                                  Icon(peso.isEmpty ? Icons.add_circle_outline : Icons.edit, size: 16, color: primaryGreen),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    peso.isNotEmpty && altezza.isNotEmpty 
-                                      ? 'Peso: $peso kg | Alt: $altezza cm' 
-                                      : 'Inserisci dati fisici',
-                                    style: GoogleFonts.montserrat(color: peso.isEmpty ? primaryGreen : Colors.grey[700], fontSize: 14, fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                            )
+                          : Row(
+                              children: [
+                                Icon(Icons.fitness_center, size: 16, color: primaryGreen),
+                                const SizedBox(width: 6),
+                                Text(
+                                  peso.isNotEmpty && altezza.isNotEmpty 
+                                    ? '$peso kg • $altezza cm' 
+                                    : (isUserLogged ? 'Dati fisici non impostati' : 'Guest'),
+                                  style: GoogleFonts.montserrat(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
                       ],
                     ),
                   ),
@@ -182,34 +275,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               const SizedBox(height: 10),
               TextField(
                 controller: _bioController,
-                onChanged: (value) => _saveBio(value),
                 maxLines: 3,
+                enabled: isEditingProfile, // Scrivibile solo se in modalità modifica
                 style: GoogleFonts.montserrat(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Scrivi qualcosa su di te e salverà in automatico...',
+                  hintText: isUserLogged ? (isEditingProfile ? 'Scrivi qualcosa su di te...' : 'Nessuna bio inserita.') : 'Iscriviti per aggiungere una bio.',
                   hintStyle: GoogleFonts.montserrat(color: unselectedIconColor),
                   filled: true,
-                  fillColor: Colors.grey[50],
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[200]!),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: primaryGreen, width: 1.5),
-                  ),
+                  fillColor: isEditingProfile ? Colors.white : Colors.grey[50],
+                  disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryGreen, width: 1.5)),
                 ),
               ),
               const SizedBox(height: 30),
 
               // ==========================================================
-              // SEZIONE RICETTE PREFERITE (DATI VERI DA SQLITE)
+              // SEZIONE RICETTE PREFERITE
               // ==========================================================
               Text('Ricette Preferite', style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
               const SizedBox(height: 10),
-              ricettePreferite.isEmpty 
-                  ? _buildEmptyList("Nessuna ricetta preferita salvata.")
-                  : _buildHorizontalList(ricettePreferite),
+              !isUserLogged 
+                ? _buildEmptyList("Accedi per salvare i tuoi piatti preferiti.")
+                : (ricettePreferite.isEmpty ? _buildEmptyList("Nessuna ricetta preferita salvata.") : _buildHorizontalList(ricettePreferite)),
               const SizedBox(height: 30),
 
               // ==========================================================
@@ -217,25 +305,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               // ==========================================================
               Text('Ricette Personali', style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
               const SizedBox(height: 10),
-              ricettePersonali.isEmpty 
-                  ? _buildEmptyList("Non hai ancora creato ricette.")
-                  : _buildHorizontalList(ricettePersonali),
+              !isUserLogged 
+                ? _buildEmptyList("Accedi per creare le tue ricette personali.")
+                : (ricettePersonali.isEmpty ? _buildEmptyList("Non hai ancora creato ricette.") : _buildHorizontalList(ricettePersonali)),
               const SizedBox(height: 40),
 
               // ==========================================================
-              // BOTTONE STATISTICHE
+              // BOTTONE STATISTICHE (BLOCCATO PER I GUEST)
               // ==========================================================
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const StatsScreen()),
-                    );
+                    if (!isUserLogged) {
+                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Iscriviti o accedi per vedere le tue statistiche!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+                          backgroundColor: Colors.redAccent,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    } else {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const StatsScreen()));
+                    }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryGreen,
+                    backgroundColor: isUserLogged ? primaryGreen : Colors.grey[400], // Grigio se bloccato
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
@@ -261,24 +357,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildMiniInput(String hint, TextEditingController controller) {
     return SizedBox(
-      width: 70,
+      width: 75,
       child: TextField(
         controller: controller,
         keyboardType: TextInputType.number,
-        style: GoogleFonts.montserrat(fontSize: 13),
+        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.montserrat(fontSize: 11, color: Colors.grey),
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey[300]!),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: primaryGreen),
-          ),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: primaryGreen)),
         ),
       ),
     );
@@ -287,7 +377,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildEmptyList(String messaggio) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
@@ -296,6 +386,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: Center(
         child: Text(
           messaggio,
+          textAlign: TextAlign.center,
           style: GoogleFonts.montserrat(color: unselectedIconColor, fontStyle: FontStyle.italic, fontSize: 14),
         ),
       ),
@@ -310,6 +401,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         itemCount: recipes.length,
         itemBuilder: (context, index) {
           final recipe = recipes[index];
+          String imgPath = recipe['image'] ?? '';
+
+          Widget imageWidget;
+          if (imgPath.startsWith('http')) {
+            imageWidget = Image.network(imgPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)));
+          } else if (imgPath.isNotEmpty) {
+            imageWidget = Image.file(File(imgPath), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)));
+          } else {
+            imageWidget = Container(color: Colors.grey[200], child: const Icon(Icons.restaurant_menu, color: Colors.grey));
+          }
+
           return Container(
             width: 130,
             margin: const EdgeInsets.only(right: 12),
@@ -322,14 +424,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 children: [
                   Container(
                     height: 90,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      image: DecorationImage(
-                        image: NetworkImage(recipe['image'] ?? 'https://via.placeholder.com/150'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                    decoration: const BoxDecoration(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+                    child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: imageWidget),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(8.0),

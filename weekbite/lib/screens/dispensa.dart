@@ -29,15 +29,13 @@ class _DispensaScreenState extends State<DispensaScreen>{
   @override
   void initState() {
     super.initState();
-    _caricaDatiDalDatabase(); // 🟢 Chiama il database all'avvio
+    _caricaDatiDalDatabase(); 
   }
 
   Future<void> _caricaDatiDalDatabase() async {
-    // Legge le due tabelle
     final dispensaDb = await DatabaseHelper.instance.getIngredienti('dispensa');
     final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa');
     
-    // Aggiorna lo schermo con i dati salvati!
     setState(() {
       dispensa = dispensaDb;
       lista = listaDb;
@@ -93,7 +91,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
                 SizedBox(width: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 245, 245, 245),
+                    color: primaryGreen,
                     borderRadius: BorderRadius.circular(30),
                     boxShadow: const[
                       BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
@@ -110,7 +108,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       
                       setState(() {}); 
                     },
-                    icon: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
+                    icon: const Icon(Icons.playlist_add_rounded, color: Colors.white),
                   ),
                 ),
               ],
