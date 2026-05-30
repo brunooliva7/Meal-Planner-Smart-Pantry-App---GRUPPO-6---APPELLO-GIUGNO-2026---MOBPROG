@@ -422,11 +422,41 @@ class DatabaseHelper {
   Future<Ingredienti> addIngrediente(String nomeTabella, Ingredienti ingrediente) async {
     final db = await instance.database;
 
+    final List<Map<String, dynamic>> esistentiMap = await db.query(
+      nomeTabella,
+      where: 'LOWER(nome) = LOWER(?)',
+      whereArgs: [ingrediente.nome.trim()],
+    );
+
+    final List<Ingredienti> esistenti = esistentiMap.map((row) => Ingredienti.fromMap(row)).toList();
+    Ingredienti? matchTrovato;
+
+    DateTime dataNuova = DateTime(ingrediente.dataScadenza.year, ingrediente.dataScadenza.month, ingrediente.dataScadenza.day);
+
+    for (var esistente in esistenti) {
+      DateTime dataEsistente = DateTime(esistente.dataScadenza.year, esistente.dataScadenza.month, esistente.dataScadenza.day);
+
+      if (esistente.quantita == ingrediente.quantita &&
+          esistente.unitaMisura == ingrediente.unitaMisura &&
+          esistente.categoria == ingrediente.categoria &&
+          dataEsistente.isAtSameMomentAs(dataNuova)) {
+        matchTrovato = esistente;
+        break;
+      }
+    }
+
+    if (matchTrovato != null) {
+      matchTrovato.pezzi += ingrediente.pezzi; 
+      await updateIngrediente(nomeTabella, matchTrovato);
+      return matchTrovato; 
+    }
+
     final ingredienteMap = ingrediente.toMap();
     ingredienteMap.remove('id'); 
     
     final id = await db.insert(nomeTabella, ingredienteMap);
-    ingrediente.id = id;
+    ingrediente.id = id; 
+    
     return ingrediente;
   }
 

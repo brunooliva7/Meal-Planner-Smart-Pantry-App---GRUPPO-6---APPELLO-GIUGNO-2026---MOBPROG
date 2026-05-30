@@ -43,21 +43,6 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
   @override
   Widget build(BuildContext context){
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        title: Text("Test Notifiche"),
-        
-        // 🟢 AGGIUNGI QUESTO BOTTONE DOVE PREFERISCI PER FARE IL TEST
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active, color: Colors.orange, size: 28),
-            onPressed: () async {
-              await NotificationService.mostraNotificaDiTest();
-            },
-          ),
-        ],
-      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,9 +74,15 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                             ),
                           );
                         if (risultato != null && risultato is Ingredienti) {
-                          final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato);
+                          final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato); // o 'lista_spesa'
+                          
                           setState(() {
-                            lista.add(ingredienteSalvato);
+                            int index = lista.indexWhere((item) => item.id == ingredienteSalvato.id);
+                              if (index != -1) {
+                                lista[index] = ingredienteSalvato; // Aggiorna i pezzi a schermo
+                              } else {
+                                lista.add(ingredienteSalvato); // Aggiunge una nuova riga a schermo
+                              }
                           });
                         }
                       },
@@ -149,8 +140,13 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
 
                           final nuovoInDispensa = await DatabaseHelper.instance.addIngrediente('dispensa', listaspesa);
                           setState(() {
-                            dispensa.add(nuovoInDispensa);
                             lista.removeAt(i);
+                            int indexDispensa = dispensa.indexWhere((item) => item.id == nuovoInDispensa.id);
+                            if (indexDispensa != -1) {
+                              dispensa[indexDispensa] = nuovoInDispensa;
+                            } else {
+                              dispensa.add(nuovoInDispensa);
+                            }
                           });
                         }
                       },
