@@ -8,6 +8,7 @@ class Ingredienti{
   final String unitaMisura; //unità di misura del prodotto
   int pezzi; //pezzi del prodotto
   final String categoria;
+  final DateTime dataScadenza;
 
   Ingredienti({
     required this.nome, 
@@ -15,6 +16,7 @@ class Ingredienti{
     required this.unitaMisura,
     required this.pezzi,
     required this.categoria,
+    required this.dataScadenza,
   });
 }
 
@@ -141,16 +143,17 @@ class _DispensaScreenState extends State<DispensaScreen>{
                 final categoria = categoriaM.keys.elementAt(i);
                 final emoji = categoriaM.values.elementAt(i);
                 return GestureDetector(
-                  onTap: () {
-                    /*Navigator.push(
-                      context, true
+                  onTap: () async {
+                    await Navigator.push(
+                      context, 
                       MaterialPageRoute(
                         builder: (context) => ViewDispensaCategoria(
                           categoria: categoria,
                           emoji: emoji,         
                         ),
                       ),
-                    );*/
+                    );
+                    setState(() {});
                   },
                   //borderRadius: BorderRadius.circular(16),
                   child: Container(
@@ -212,8 +215,16 @@ class _DispensaScreenState extends State<DispensaScreen>{
 class _IngredientiCard extends StatelessWidget {
   final Ingredienti ingrediente;
   final VoidCallback onTap;
+  final VoidCallback? onElimina;
+  final VoidCallback? onModifica;
+  final Widget? leadingWidget;
 
-  const _IngredientiCard({required this.ingrediente, required this.onTap});
+  const _IngredientiCard({required this.ingrediente, 
+    required this.onTap, 
+    required this.onElimina, 
+    required this.onModifica,
+    this.leadingWidget,
+    });
 
   @override
   Widget build(BuildContext context) {
@@ -240,14 +251,30 @@ class _IngredientiCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                   ListTile(
+                    leading: leadingWidget,
                     title: Text(
                       ingrediente.nome, 
-                      style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)
+                      style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
                     ),
                     subtitle: Text(
-                      "ciao",
-                      style: GoogleFonts.montserrat(fontSize: 12, color: Colors.black54),
+                      "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • ${ingrediente.dataScadenza.day}/${ingrediente.dataScadenza.month}/${ingrediente.dataScadenza.year}", 
+                      style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13)
                     ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onModifica != null)
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: primaryGreen),
+                            onPressed: onModifica,
+                          ),
+                        if (onElimina != null)
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: onElimina,
+                          ),
+                      ],
+                    )
                   ),
                   SizedBox(width: 20,)
                 ],
@@ -268,7 +295,6 @@ class ListaIngredientiScreen extends StatefulWidget{
 }
 
 class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{ 
-  //List<Ingredienti> lista = [];
   @override
   Widget build(BuildContext context){
     return Scaffold(
@@ -295,54 +321,45 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
             SizedBox(width: 20), 
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
                 itemCount: lista.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 20),
                 itemBuilder: (context, i) {
                   final listaspesa = lista[i];
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05), 
-                          blurRadius: 4, 
-                          offset: const Offset(0, 2)
-                        )
-                      ],
-                    ),
-                    child: CheckboxListTile(
+                  return _IngredientiCard(
+                    ingrediente: listaspesa,
+                    onTap: () { /* ... */ },
+                    onModifica: () async {
+                      final ingredienteModificato = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FormIngredientiScreen(ingredienteEsistente: listaspesa),
+                        ),
+                      );
+
+                      if (ingredienteModificato != null) {
+                        setState(() {
+                          int indexGlobale = dispensa.indexOf(listaspesa);
+                          if (indexGlobale != -1) {
+                            dispensa[indexGlobale] = ingredienteModificato;
+                          }
+                        });
+                      }
+                    },
+                    onElimina: () {
+                      setState(() {
+                        lista.removeAt(i);
+                      });
+                    },
+                    // PASSIAMO IL PALLINO: appare solo qui!
+                    leadingWidget: Checkbox(
                       value: false, 
-                      title: Text(
-                        listaspesa.nome, 
-                        style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
-                      ),
-                      
-                      subtitle: Text(
-                        "${listaspesa.quantita} ${listaspesa.unitaMisura} • ${listaspesa.pezzi} pz • ${listaspesa.categoria}", 
-                        style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13)
-                      ),
-                      
-                      activeColor: primaryGreen, 
-
-                      checkboxShape: const CircleBorder(), 
-                      
-                      controlAffinity: ListTileControlAffinity.leading, 
-
-                      secondary: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Color.fromARGB(255, 244, 67, 54)),
-                        onPressed: () {
-                          setState(() {
-                            lista.removeAt(i);
-                          });
-                        },
-                      ),
-                      
+                      activeColor: primaryGreen,
+                      shape: const CircleBorder(), // Lo rende un cerchietto rotondo
                       onChanged: (bool? completato) {
                         if (completato == true) {
                           setState(() {
-                            dispensa.add(listaspesa); 
+                            dispensa.add(listaspesa);
                             lista.removeAt(i);
                           });
                         }
@@ -357,17 +374,13 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async { 
-          // 2. Mettiti in attesa (await) del risultato dal Form
           final risultato = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => const FormIngredientiScreen(), 
             ),
           );
-
-          // 3. Se torni indietro con un ingrediente (e non premendo Annulla)
           if (risultato != null && risultato is Ingredienti) {
-            // 4. Salvalo nella lista e aggiorna lo schermo!
             setState(() {
               lista.add(risultato);
             });
@@ -381,7 +394,9 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
 }
 
 class FormIngredientiScreen extends StatefulWidget{
-  const FormIngredientiScreen({super.key});
+  final Ingredienti? ingredienteEsistente; 
+
+  const FormIngredientiScreen({super.key, this.ingredienteEsistente});  
 
   @override
   State <FormIngredientiScreen> createState() => _FormIngredientiScreen();
@@ -398,6 +413,52 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
   final List<String> _categoria = ['Pasta', 'Frutta', 'Verdura', 'Carne', 'Pesce', 'Latticini', 'Bevande', 'Altro'];
   String _categoriaSelezionata= 'Altro';
 
+  DateTime? _dataSelezionata; 
+
+  // Funzione per aprire il calendario
+  Future<void> _scegliData(BuildContext context) async {
+    final DateTime? data = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(), // Imposta DateTime(2000) se vuoi permettere date passate
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: primaryGreen, // Usa il tuo verde per il calendario
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (data != null && data != _dataSelezionata) {
+      setState(() {
+        _dataSelezionata = data;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.ingredienteEsistente != null) {
+      final ing = widget.ingredienteEsistente!;
+      
+      _nomeController.text = ing.nome;
+      _quantitaController.text = ing.quantita.toString(); 
+      _pezziController.text = ing.pezzi.toString();
+      
+      _unitaSelezionata = ing.unitaMisura;
+      _categoriaSelezionata = ing.categoria;
+      _dataSelezionata = ing.dataScadenza;
+    }
+  }
+
   @override
   Widget build(BuildContext context){    
     return Scaffold(
@@ -407,9 +468,12 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: primaryGreen),
-          onPressed: () => Navigator.pop(context, false), 
+          onPressed: () => Navigator.pop(context), 
         ),
-        title: Text("Aggiunta ingrediente", style: GoogleFonts.montserrat(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(
+          widget.ingredienteEsistente == null ? "Aggiunta ingrediente" : "Modifica ingrediente",
+          style: GoogleFonts.montserrat(color: Colors.black87, fontWeight: FontWeight.bold)
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -488,6 +552,35 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: "Pezzi (es. 1)", border: OutlineInputBorder(),),
               ),
+
+              const SizedBox(height: 20),
+
+              // --- NUOVO: FORM DATA ---
+              InkWell(
+                onTap: () => _scegliData(context),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: "Data di scadenza",
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _dataSelezionata == null
+                            ? "Tocca per scegliere la data"
+                            // Formattazione base (gg/mm/aaaa)
+                            : "${_dataSelezionata!.day.toString().padLeft(2, '0')}/${_dataSelezionata!.month.toString().padLeft(2, '0')}/${_dataSelezionata!.year}",
+                        style: GoogleFonts.montserrat(
+                          color: _dataSelezionata == null ? Colors.grey[600] : Colors.black87,
+                        ),
+                      ),
+                      const Icon(Icons.calendar_today, color: primaryGreen),
+                    ],
+                  ),
+                ),
+              ),
+
               const Spacer(), 
         
               Column(
@@ -502,7 +595,7 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                       ],
                     ),
                     child: TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(context),
                       child: Text(
                         "Annulla",
                         style: GoogleFonts.montserrat(
@@ -531,6 +624,7 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                           unitaMisura: _unitaSelezionata,
                           pezzi: int.tryParse(_pezziController.text) ?? 1,
                           categoria: _categoriaSelezionata,
+                          dataScadenza: _dataSelezionata ?? DateTime.now(),
                         );
 
                         Navigator.pop(context, nuovoIngrediente);
@@ -553,28 +647,49 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
       ),
     );
   }
-}
 
-/*
-class ViewDispensaCategoria extends StatefulWidget{
-  const ViewDispensaCategoria({super.key});
-
-  State <ViewDispensaCategoria> createState() => _ViewDispensaCategoria();
-}
-
-class _ViewDispensaCategoria extends State<ViewDispensaCategoria>{ 
-  //List<Ingredienti> lista = [];
   @override
-  Widget build(BuildContext context){
+  void dispose() {
+    _nomeController.dispose();
+    _quantitaController.dispose();
+    _pezziController.dispose();
+    super.dispose();
+  }
+}
+
+class ViewDispensaCategoria extends StatefulWidget {
+  final String categoria;
+  final String emoji; 
+
+  const ViewDispensaCategoria({
+    Key? key, 
+    required this.categoria,
+    required this.emoji,
+  }) : super(key: key);
+
+  @override
+  State<ViewDispensaCategoria> createState() => _ViewDispensaCategoriaState();
+}
+
+class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
+  @override
+  Widget build(BuildContext context) {
+    final ingredientiFiltrati = dispensa
+        .where((ing) => ing.categoria == widget.categoria)
+        .toList();
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: primaryGreen),
-          onPressed: () => Navigator.pop(context, false), 
+          onPressed: () => Navigator.pop(context), 
         ),
-        title: Text("Lista della spesa", style: GoogleFonts.montserrat(color: Colors.black87, fontWeight: FontWeight.bold)),
+        title: Text(
+          "${widget.emoji} ${widget.categoria}", 
+          style: GoogleFonts.montserrat(color: Colors.black87, fontWeight: FontWeight.bold)
+        ),
       ),
       body: SafeArea(
         child: Column(
@@ -583,66 +698,44 @@ class _ViewDispensaCategoria extends State<ViewDispensaCategoria>{
             Padding( 
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Text(
-                "Ingredienti nella lista spesa: ${lista.length}",
-               style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color:Colors.grey),
+                "Elementi in dispensa: ${ingredientiFiltrati.length}",
+                style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
               ),
             ),
-            SizedBox(width: 20), 
+            
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: lista.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 20),
+                padding: const EdgeInsets.only(left: 20, right: 20, bottom: 40),
+                itemCount: ingredientiFiltrati.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, i) {
-                  final listaspesa = lista[i];
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05), 
-                          blurRadius: 4, 
-                          offset: const Offset(0, 2)
-                        )
-                      ],
-                    ),
-                    child: CheckboxListTile(
-                      value: false, 
-                      title: Text(
-                        listaspesa.nome, 
-                        style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
-                      ),
-                      
-                      subtitle: Text(
-                        "${listaspesa.quantita} ${listaspesa.unitaMisura} • ${listaspesa.pezzi} pz • ${listaspesa.categoria}", 
-                        style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13)
-                      ),
-                      
-                      activeColor: primaryGreen, 
+                  final ingrediente = ingredientiFiltrati[i];
+                  return _IngredientiCard(
+                    ingrediente: ingrediente,
+                    onTap: () {
+                    },
+                    onElimina: () {
+                      setState(() {
+                        dispensa.remove(ingrediente);
+                      });
+                    },
+                    onModifica: () async {
+                      final ingredienteModificato = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FormIngredientiScreen(ingredienteEsistente: ingrediente),
+                        ),
+                      );
 
-                      checkboxShape: const CircleBorder(), 
-                      
-                      controlAffinity: ListTileControlAffinity.leading, 
-
-                      secondary: IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Color.fromARGB(255, 244, 67, 54)),
-                        onPressed: () {
-                          setState(() {
-                            lista.removeAt(i);
-                          });
-                        },
-                      ),
-                      
-                      onChanged: (bool? completato) {
-                        if (completato == true) {
-                          setState(() {
-                            dispensa.add(listaspesa); 
-                            lista.removeAt(i);
-                          });
-                        }
-                      },
-                    ),
+                      if (ingredienteModificato != null) {
+                        setState(() {
+                          int indexGlobale = dispensa.indexOf(ingrediente);
+                          if (indexGlobale != -1) {
+                            dispensa[indexGlobale] = ingredienteModificato;
+                          }
+                        });
+                      }
+                    },
                   );
                 },
               ),
@@ -650,45 +743,6 @@ class _ViewDispensaCategoria extends State<ViewDispensaCategoria>{
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async { 
-          // 2. Mettiti in attesa (await) del risultato dal Form
-          final risultato = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const FormIngredientiScreen(), 
-            ),
-          );
-
-          // 3. Se torni indietro con un ingrediente (e non premendo Annulla)
-          if (risultato != null && risultato is Ingredienti) {
-            // 4. Salvalo nella lista e aggiorna lo schermo!
-            setState(() {
-              lista.add(risultato);
-            });
-          }
-        },
-        child: const Icon(Icons.playlist_add_rounded, color: primaryGreen),
-        backgroundColor: Colors.white,
-      ),
     );
   }
 }
-/*
-  Expanded(
-  child: ListView.separated(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    itemCount: dispensa.length,
-    separatorBuilder: (_, __) => const SizedBox(height: 12),
-    itemBuilder: (context, i) {
-      final dispensa_ing = dispensa[i];
-      return _IngredientiCard(
-        ingrediente: dispensa_ing,
-        onTap: () {
-          // Navigator.push = equivalente di navigation.navigate('Study', ...)
-        },
-      );
-    },
-  ), 
-}*/
-*/
