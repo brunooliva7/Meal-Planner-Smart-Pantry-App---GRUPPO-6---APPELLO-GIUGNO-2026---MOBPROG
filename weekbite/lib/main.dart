@@ -148,7 +148,7 @@ class _BaseLayoutState extends State<BaseLayout> {
             children: [
               _buildNavItem(Icons.home_filled,"Home", 0),
               _buildNavItem(Icons.calendar_month,"Piani", 1),
-              _buildNavItem(Icons.add_box_outlined,"", 2, size: 28),
+              _buildNavItem(Icons.add_box_outlined,"Aggiungi", 2, size: 28),
               _buildNavItem(Icons.checklist_rtl_rounded,"Lista", 5, size: 28),
               _buildNavItem(Icons.kitchen,"Dispensa", 3),
               _buildNavItem(Icons.person_outline,"Account", 4),
