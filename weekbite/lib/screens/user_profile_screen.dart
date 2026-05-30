@@ -1,13 +1,11 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image_picker/image_picker.dart'; // 🟢 Import per la galleria
-import 'stats_screen.dart';
+import 'package:image_picker/image_picker.dart'; 
+import 'recipe.dart'; 
 import '../database/database_helper.dart';
 
-// COLORI UFFICIALI DEL GRUPPO
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
 const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
@@ -20,9 +18,10 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  // Stati Utente
-  bool isUserLogged = false; // 🟢 Controlla se è Guest o Loggato
-  bool isEditingProfile = false; // 🟢 Sostituisce isEditingStats per gestire TUTTO
+  final _formKey = GlobalKey<FormState>();
+
+  bool isUserLogged = false; 
+  bool isEditingProfile = false; 
   bool isLoading = true; 
 
   String nickname = 'utente_guest';
@@ -30,417 +29,460 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String peso = '';
   String altezza = '';
   String bio = '';
-  String imagePath = ''; // 🟢 Percorso della foto profilo locale
+  String imagePath = ''; 
 
-  final TextEditingController _nicknameController = TextEditingController();
-  final TextEditingController _nomeController = TextEditingController();
+  List<dynamic> favoriteRecipes = [];
+  List<dynamic> myCreatedRecipes = [];
+  List<dynamic> savedOfflineRecipes = [];
+
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _pesoController = TextEditingController();
   final TextEditingController _altezzaController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
 
-  List<dynamic> ricettePreferite = [];
-  List<dynamic> ricettePersonali = [];
-
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Lasciamo che la schermata si disegni per un frame prima di attaccare il DB
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProfileAndData();
+    });
   }
 
-  // ==========================================================
-  // 🧠 LOGICA DI LETTURA E SALVATAGGIO DATI
-  // ==========================================================
-  Future<void> _loadData() async {
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _pesoController.dispose();
+    _altezzaController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
+  // 🟢 IL CUORE DELL'OTTIMIZZAZIONE: Caricamento Parallelo
+ Future<void> _loadProfileAndData() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // 1. Controllo se l'utente è loggato
     final String? uid = prefs.getString('logged_in_uid');
-    bool checkLogged = uid != null && uid.isNotEmpty;
 
-    // 2. Carica i dati del profilo
-    setState(() {
-      isUserLogged = checkLogged;
-
-      if (isUserLogged) {
-        nickname = prefs.getString('user_nickname') ?? 'nuovo_utente';
-        nome = prefs.getString('user_nome') ?? 'Nome non impostato';
-        peso = prefs.getString('user_peso') ?? '';
-        altezza = prefs.getString('user_altezza') ?? '';
-        bio = prefs.getString('user_bio') ?? '';
-        imagePath = prefs.getString('user_pic') ?? '';
-      } else {
-        // Valori di default per i Guest
-        nickname = 'ospite_curioso';
-        nome = 'Utente Non Registrato';
-        peso = ''; altezza = ''; bio = ''; imagePath = '';
-      }
-
-      _nicknameController.text = nickname;
-      _nomeController.text = nome;
-      _pesoController.text = peso;
-      _altezzaController.text = altezza;
-      _bioController.text = bio;
-    });
-
-    // 3. Cerca le ricette preferite nel Database
-    if (isUserLogged) {
-      final List<Map<String, dynamic>> favs = await DatabaseHelper.instance.getAllFavorites();
-      setState(() {
-        ricettePreferite = favs;
-      });
-
-      final String? personalRecipesStr = prefs.getString('personal_recipes');
-      if (personalRecipesStr != null) {
-        ricettePersonali = json.decode(personalRecipesStr);
-      }
+    if (uid == null || uid.isEmpty) {
+      if (mounted) setState(() { isUserLogged = false; isLoading = false; });
+      return;
     }
 
-    setState(() => isLoading = false);
-  }
+    isUserLogged = true;
+    final db = await DatabaseHelper.instance.database;
+    final int userId = int.parse(uid);
 
-  // 🟢 SALVA TUTTE LE MODIFICHE DEL PROFILO
-  Future<void> _saveFullProfile() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('user_nickname', _nicknameController.text.trim());
-    await prefs.setString('user_nome', _nomeController.text.trim());
-    await prefs.setString('user_peso', _pesoController.text.trim());
-    await prefs.setString('user_altezza', _altezzaController.text.trim());
-    await prefs.setString('user_bio', _bioController.text.trim());
-    await prefs.setString('user_pic', imagePath);
+    try {
+      // 1. Dati Utente
+      final userQuery = await db.query('users', where: 'id = ?', whereArgs: [userId]);
+      if (userQuery.isNotEmpty) {
+        nome = userQuery.first['name']?.toString() ?? 'Utente Registrato';
+        nickname = userQuery.first['email']?.toString().split('@')[0] ?? 'utente_weekbite';
+      }
 
-    setState(() {
-      nickname = _nicknameController.text.trim();
-      nome = _nomeController.text.trim();
-      peso = _pesoController.text.trim();
-      altezza = _altezzaController.text.trim();
-      bio = _bioController.text.trim();
-      isEditingProfile = false;
-    });
+      // 2. Info Profilo
+      final profileQuery = await db.query('user_profiles', where: 'user_id = ?', whereArgs: [userId]);
+      if (profileQuery.isNotEmpty) {
+        final data = profileQuery.first;
+        peso = data['peso']?.toString() ?? '';
+        altezza = data['altezza']?.toString() ?? '';
+        bio = data['bio']?.toString() ?? '';
+        imagePath = data['image_path']?.toString() ?? '';
+      }
+
+      // 3. Preferiti (Usiamo il TUO metodo sicuro dal Database Helper)
+      favoriteRecipes = await DatabaseHelper.instance.getAllFavorites();
+
+      // 4. Ricette salvate (SENZA JSON, velocissimo)
+      final savedQuery = await db.query('saved_recipes', columns: ['id', 'title', 'image']);
+      
+      List<dynamic> mine = [];
+      List<dynamic> saved = [];
+      
+      for (var row in savedQuery) {
+        int rId = row['id'] as int;
+        Map<String, dynamic> minimalRecipe = {
+          'id': rId,
+          'title': row['title'],
+          'image': row['image'],
+        };
+        // Se l'ID è gigante o negativo, l'ha creata l'utente
+        if (rId > 1600000000 || rId < 0) {
+          mine.add(minimalRecipe);
+        } else {
+          saved.add(minimalRecipe);
+        }
+      }
+      myCreatedRecipes = mine;
+      savedOfflineRecipes = saved;
+
+    } catch (e) {
+      print("Errore caricamento dati: $e");
+    }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Profilo aggiornato!", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
-      );
+      setState(() => isLoading = false);
     }
   }
 
-  // 🟢 SELEZIONA FOTO DALLA GALLERIA
-  Future<void> _pickImage() async {
-    if (!isUserLogged || !isEditingProfile) return;
+  Future<void> _handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('logged_in_uid'); 
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logout effettuato!', style: GoogleFonts.montserrat()), backgroundColor: Colors.orangeAccent),
+      );
+      Navigator.pop(context, true); 
+    }
+  }
 
+  Future<void> _pickProfileImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         imagePath = pickedFile.path;
       });
+      _saveProfileToDb();
     }
+  }
+
+  Future<void> _saveProfileToDb() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final String? uid = prefs.getString('logged_in_uid');
+    if (uid == null) return;
+
+    final db = await DatabaseHelper.instance.database;
+    int userId = int.parse(uid);
+
+    await db.update(
+      'users',
+      {'name': _nameController.text.trim()},
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+
+    final check = await db.query('user_profiles', where: 'user_id = ?', whereArgs: [userId]);
+    
+    Map<String, dynamic> profileData = {
+      'user_id': userId,
+      'peso': double.tryParse(_pesoController.text) ?? 0.0,
+      'altezza': double.tryParse(_altezzaController.text) ?? 0.0,
+      'bio': _bioController.text.trim(),
+      'image_path': imagePath,
+    };
+
+    if (check.isEmpty) {
+      await db.insert('user_profiles', profileData);
+    } else {
+      await db.update('user_profiles', profileData, where: 'user_id = ?', whereArgs: [userId]);
+    }
+
+    setState(() {
+      nome = _nameController.text.trim();
+      peso = _pesoController.text;
+      altezza = _altezzaController.text;
+      bio = _bioController.text.trim();
+      isEditingProfile = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Profilo aggiornato!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator(color: primaryGreen));
+      return const Scaffold(backgroundColor: backgroundColor, body: Center(child: CircularProgressIndicator(color: primaryGreen)));
+    }
+
+    if (!isUserLogged) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        body: Center(
+          child: Text(
+            "Accedi per visualizzare e\ngestire il tuo profilo personale.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.montserrat(fontSize: 16, color: unselectedIconColor, fontWeight: FontWeight.w500),
+          ),
+        ),
+      );
     }
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ==========================================================
-              // PULSANTE MODIFICA IN ALTO (Solo se loggato)
-              // ==========================================================
-              if (isUserLogged)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () {
-                      if (isEditingProfile) {
-                        _saveFullProfile(); // Salva se stava modificando
-                      } else {
-                        setState(() => isEditingProfile = true); // Entra in modalità modifica
-                      }
-                    },
-                    icon: Icon(isEditingProfile ? Icons.check : Icons.edit, color: primaryGreen, size: 18),
-                    label: Text(
-                      isEditingProfile ? "Salva Profilo" : "Modifica Profilo",
-                      style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        title: Text("Il tuo Profilo", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            tooltip: "Sconnetti account",
+            onPressed: _handleLogout,
+          )
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ScrollConfiguration(
+          behavior: const ScrollBehavior().copyWith(overscroll: false), 
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                _buildHeaderAvatar(),
+                const SizedBox(height: 24),
+                
+                isEditingProfile ? _buildEditFormFields() : _buildProfileStatsCard(),
+                const SizedBox(height: 24),
 
-              // ==========================================================
-              // HEADER: Foto e Dati Utente
-              // ==========================================================
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 🟢 FOTO PROFILO CLICCABILE
-                  GestureDetector(
-                    onTap: _pickImage,
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 80, height: 80,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: primaryGreen, width: 2),
-                            image: imagePath.isNotEmpty 
-                                ? DecorationImage(image: FileImage(File(imagePath)), fit: BoxFit.cover)
-                                : null,
-                          ),
-                          child: imagePath.isEmpty ? const Icon(Icons.person, size: 40, color: primaryGreen) : null,
-                        ),
-                        if (isEditingProfile)
-                          Positioned(
-                            bottom: 0, right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(color: primaryGreen, shape: BoxShape.circle),
-                              child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  
-                  // 🟢 DATI ANAGRAFICI
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        isEditingProfile
-                            ? TextField(
-                                controller: _nicknameController,
-                                style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                                decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.only(bottom: 4), hintText: "Nickname"),
-                              )
-                            : Text(
-                                '@$nickname',
-                                style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                              ),
-                        
-                        const SizedBox(height: 4),
-                        
-                        isEditingProfile
-                            ? TextField(
-                                controller: _nomeController,
-                                style: GoogleFonts.montserrat(fontSize: 14, color: Colors.grey[700]),
-                                decoration: const InputDecoration(isDense: true, contentPadding: EdgeInsets.only(bottom: 4), hintText: "Nome e Cognome"),
-                              )
-                            : Text(
-                                nome,
-                                style: GoogleFonts.montserrat(fontSize: 14, color: Colors.grey[600]),
-                              ),
-                        
-                        const SizedBox(height: 12),
+                _buildSectionTitle("I tuoi Preferiti ❤️"),
+                _buildHorizontalRecipesList(favoriteRecipes, isFromApi: true),
 
-                        // DATI FISICI
-                        isEditingProfile 
-                          ? Row(
-                              children: [
-                                _buildMiniInput("Peso (kg)", _pesoController),
-                                const SizedBox(width: 8),
-                                _buildMiniInput("Alt (cm)", _altezzaController),
-                              ],
-                            )
-                          : Row(
-                              children: [
-                                Icon(Icons.fitness_center, size: 16, color: primaryGreen),
-                                const SizedBox(width: 6),
-                                Text(
-                                  peso.isNotEmpty && altezza.isNotEmpty 
-                                    ? '$peso kg • $altezza cm' 
-                                    : (isUserLogged ? 'Dati fisici non impostati' : 'Guest'),
-                                  style: GoogleFonts.montserrat(color: Colors.grey[700], fontSize: 13, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 30),
+                _buildSectionTitle("Le mie Ricette 🍳"),
+                _buildHorizontalRecipesList(myCreatedRecipes, isFromApi: false),
 
-              // ==========================================================
-              // SEZIONE BIO
-              // ==========================================================
-              Text('Bio', style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _bioController,
-                maxLines: 3,
-                enabled: isEditingProfile, // Scrivibile solo se in modalità modifica
-                style: GoogleFonts.montserrat(fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: isUserLogged ? (isEditingProfile ? 'Scrivi qualcosa su di te...' : 'Nessuna bio inserita.') : 'Iscriviti per aggiungere una bio.',
-                  hintStyle: GoogleFonts.montserrat(color: unselectedIconColor),
-                  filled: true,
-                  fillColor: isEditingProfile ? Colors.white : Colors.grey[50],
-                  disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[300]!)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: primaryGreen, width: 1.5)),
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // ==========================================================
-              // SEZIONE RICETTE PREFERITE
-              // ==========================================================
-              Text('Ricette Preferite', style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-              const SizedBox(height: 10),
-              !isUserLogged 
-                ? _buildEmptyList("Accedi per salvare i tuoi piatti preferiti.")
-                : (ricettePreferite.isEmpty ? _buildEmptyList("Nessuna ricetta preferita salvata.") : _buildHorizontalList(ricettePreferite)),
-              const SizedBox(height: 30),
-
-              // ==========================================================
-              // SEZIONE RICETTE PERSONALI
-              // ==========================================================
-              Text('Ricette Personali', style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-              const SizedBox(height: 10),
-              !isUserLogged 
-                ? _buildEmptyList("Accedi per creare le tue ricette personali.")
-                : (ricettePersonali.isEmpty ? _buildEmptyList("Non hai ancora creato ricette.") : _buildHorizontalList(ricettePersonali)),
-              const SizedBox(height: 40),
-
-              // ==========================================================
-              // BOTTONE STATISTICHE (BLOCCATO PER I GUEST)
-              // ==========================================================
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    if (!isUserLogged) {
-                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Iscriviti o accedi per vedere le tue statistiche!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    } else {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const StatsScreen()));
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isUserLogged ? primaryGreen : Colors.grey[400], // Grigio se bloccato
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 0,
-                  ),
-                  icon: const Icon(Icons.bar_chart, color: Colors.white),
-                  label: Text(
-                    'Statistiche', 
-                    style: GoogleFonts.montserrat(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)
-                  ),
-                ),
-              ),
-              const SizedBox(height: 100), // Spazio per la bottom bar
-            ],
+                _buildSectionTitle("Ricette Salvate Offline 💾"),
+                _buildHorizontalRecipesList(savedOfflineRecipes, isFromApi: false),
+                
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ==============================================================
-  // WIDGET DI SUPPORTO
-  // ==============================================================
-
-  Widget _buildMiniInput(String hint, TextEditingController controller) {
-    return SizedBox(
-      width: 75,
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: GoogleFonts.montserrat(fontSize: 11, color: Colors.grey),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: primaryGreen)),
-        ),
+  Widget _buildHeaderAvatar() {
+    return Center(
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: _pickProfileImage,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 55,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: imagePath.isNotEmpty ? FileImage(File(imagePath)) : null,
+                  child: imagePath.isEmpty ? const Icon(Icons.person, size: 55, color: unselectedIconColor) : null,
+                ),
+                Positioned(
+                  bottom: 0, right: 4,
+                  child: CircleAvatar(
+                    radius: 16, backgroundColor: primaryGreen,
+                    child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                  ),
+                )
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(nome, style: GoogleFonts.montserrat(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87)),
+          Text("@$nickname", style: GoogleFonts.montserrat(fontSize: 14, color: unselectedIconColor, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }
 
-  Widget _buildEmptyList(String messaggio) {
+  Widget _buildProfileStatsCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!, style: BorderStyle.solid),
+        color: Colors.white, borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))],
       ),
-      child: Center(
-        child: Text(
-          messaggio,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.montserrat(color: unselectedIconColor, fontStyle: FontStyle.italic, fontSize: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Informazioni Fisiche", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 16, color: primaryGreen)),
+              IconButton(
+                icon: const Icon(Icons.edit, color: primaryGreen, size: 20),
+                onPressed: () => setState(() => isEditingProfile = true),
+              )
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildStatBubble("Altezza", altezza.isEmpty ? "--" : "$altezza cm", Icons.straighten),
+              const SizedBox(width: 16),
+              _buildStatBubble("Peso", peso.isEmpty ? "--" : "$peso kg", Icons.scale),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text("Biografia", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+          const SizedBox(height: 6),
+          Text(
+            bio.isEmpty ? "Nessuna biografia inserita. Raccontaci qualcosa sui tuoi gusti culinari!" : bio,
+            style: GoogleFonts.montserrat(fontSize: 13, color: Colors.grey[600], height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatBubble(String label, String value, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey[200]!)),
+        child: Row(
+          children: [
+            Icon(icon, color: primaryGreen, size: 22),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GoogleFonts.montserrat(fontSize: 11, color: unselectedIconColor, fontWeight: FontWeight.w600)),
+                Text(value, style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87)),
+              ],
+            )
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHorizontalList(List recipes) {
+  Widget _buildEditFormFields() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+      child: Column(
+        children: [
+          _buildTextFormField(_nameController, "Nome e Cognome", Icons.person, (v) => v == null || v.trim().isEmpty ? 'Inserisci il nome' : null),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _buildTextFormField(_altezzaController, "Altezza (cm)", Icons.straighten, (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Errore' : null, isNum: true)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildTextFormField(_pesoController, "Peso (kg)", Icons.scale, (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Errore' : null, isNum: true)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildTextFormField(_bioController, "Racconta qualcosa di te...", Icons.book, null, lines: 3),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: () => setState(() => isEditingProfile = false), child: Text("Annulla", style: GoogleFonts.montserrat(color: Colors.grey))),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _saveProfileToDb,
+                style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: Text("Salva", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
+              )
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextFormField(TextEditingController ctrl, String hint, IconData icon, String? Function(String?)? val, {bool isNum = false, int lines = 1}) {
+    return TextFormField(
+      controller: ctrl, validator: val, maxLines: lines,
+      keyboardType: isNum ? TextInputType.number : TextInputType.text,
+      style: GoogleFonts.montserrat(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: hint, labelStyle: GoogleFonts.montserrat(color: Colors.grey[500]),
+        prefixIcon: Icon(icon, color: primaryGreen), filled: true, fillColor: Colors.grey[50],
+        errorStyle: GoogleFonts.montserrat(fontSize: 11),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: primaryGreen, width: 1.5)),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24, bottom: 12, left: 4),
+      child: Text(title, style: GoogleFonts.montserrat(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
+    );
+  }
+
+  Widget _buildHorizontalRecipesList(List<dynamic> list, {required bool isFromApi}) {
+    if (list.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Text("Nessuna ricetta presente in questa sezione.", style: GoogleFonts.montserrat(fontSize: 13, color: unselectedIconColor, fontStyle: FontStyle.italic)),
+      );
+    }
+
     return SizedBox(
-      height: 160,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: recipes.length,
-        itemBuilder: (context, index) {
-          final recipe = recipes[index];
-          String imgPath = recipe['image'] ?? '';
+      height: 165,
+      child: ScrollConfiguration(
+        behavior: const ScrollBehavior().copyWith(overscroll: false), 
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(), 
+          itemCount: list.length,
+          itemBuilder: (context, index) {
+            final recipe = list[index];
+            String imgPath = recipe['image']?.toString() ?? '';
+            imgPath = imgPath.replaceAll('file://', ''); 
 
-          Widget imageWidget;
-          if (imgPath.startsWith('http')) {
-            imageWidget = Image.network(imgPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)));
-          } else if (imgPath.isNotEmpty) {
-            imageWidget = Image.file(File(imgPath), fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)));
-          } else {
-            imageWidget = Container(color: Colors.grey[200], child: const Icon(Icons.restaurant_menu, color: Colors.grey));
-          }
+            Widget imageWidget;
+            // Usa cacheWidth per ridurre la RAM a una larghezza minuscola (i box sono larghi solo 140px)
+            if (imgPath.startsWith('http')) {
+              imageWidget = Image.network(
+                imgPath, fit: BoxFit.cover, cacheWidth: 200, 
+                errorBuilder: (c, e, s) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
+              );
+            } else if (imgPath.isNotEmpty) {
+              imageWidget = Image.file(
+                File(imgPath), fit: BoxFit.cover, cacheWidth: 200, 
+                errorBuilder: (c, e, s) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
+              );
+            } else {
+              imageWidget = Container(color: Colors.grey[200], child: const Icon(Icons.restaurant_menu, color: Colors.grey));
+            }
 
-          return Container(
-            width: 130,
-            margin: const EdgeInsets.only(right: 12),
-            child: Card(
-              color: Colors.white,
-              elevation: 1,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 90,
-                    decoration: const BoxDecoration(borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
-                    child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(12)), child: imageWidget),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      recipe['title'] ?? 'Senza Titolo',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+            return Container(
+              width: 140,
+              margin: const EdgeInsets.only(right: 14, bottom: 4),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi)),
+                  );
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(width: double.infinity, child: imageWidget),
+                      ),
                     ),
-                  )
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      recipe['title'] ?? 'Senza Titolo',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                    )
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

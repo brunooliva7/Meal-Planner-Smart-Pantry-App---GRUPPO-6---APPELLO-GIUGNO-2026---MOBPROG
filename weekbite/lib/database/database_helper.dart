@@ -39,16 +39,29 @@ class DatabaseHelper {
   // 📐 CREAZIONE DELLE TABELLE DA ZERO (Per chi installa l'app ora)
   // ==========================================================
   Future _createDB(Database db, int version) async {
+
     await db.execute('''
-      CREATE TABLE viral_recipes_cache (
-        id INTEGER PRIMARY KEY,
-        title TEXT,
-        image TEXT,
-        recipe_json TEXT,
-        fetch_date TEXT
+      CREATE TABLE users (
+        uid TEXT PRIMARY KEY,
+        email TEXT NOT NULL,
+        name TEXT,
+        photo_url TEXT,
+        preferences_json TEXT,
+        registration_date TEXT,
+        password TEXT
       )
     ''');
-
+    
+    await db.execute('''
+      CREATE TABLE user_profiles (
+        user_id INTEGER PRIMARY KEY,
+        peso REAL,
+        altezza REAL,
+        bio TEXT,
+        image_path TEXT
+      )
+    ''');
+    
     await db.execute('''
       CREATE TABLE favorites (
         id INTEGER PRIMARY KEY,
@@ -57,13 +70,19 @@ class DatabaseHelper {
       )
     ''');
 
+    // 4. Tabella Ricette Salvate
     await db.execute('''
       CREATE TABLE saved_recipes (
         id INTEGER PRIMARY KEY,
         title TEXT,
         image TEXT,
-        recipe_json TEXT,
-        personal_notes TEXT
+        servings INTEGER,
+        readyInMinutes INTEGER,
+        summary TEXT,
+        instructions TEXT,
+        extendedIngredients TEXT,
+        personal_notes TEXT,
+        recipe_json TEXT
       )
     ''');
 
@@ -85,17 +104,7 @@ class DatabaseHelper {
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE users (
-        uid TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        name TEXT,
-        photo_url TEXT,
-        preferences_json TEXT,
-        registration_date TEXT,
-        password TEXT
-      )
-    ''');
+    
 
     await db.execute('''
       CREATE TABLE dispensa (
@@ -120,6 +129,16 @@ class DatabaseHelper {
         dataScadenza TEXT
       )
     ''');
+
+      await db.execute('''
+      CREATE TABLE api_cache (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recipe_id INTEGER,
+        cache_date TEXT,
+        cache_type TEXT,
+        data_json TEXT
+      )
+    ''');
   }
 
   // ==========================================================
@@ -139,6 +158,18 @@ class DatabaseHelper {
           password TEXT
         )
       ''');
+
+      await db.execute('''
+      CREATE TABLE user_profiles (
+        user_id INTEGER PRIMARY KEY,
+        peso REAL,
+        altezza REAL,
+        bio TEXT,
+        image_path TEXT
+      )
+    ''');
+
+    
       if (oldVersion < 3) {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS dispensa (
