@@ -108,10 +108,16 @@ class _BaseLayoutState extends State<BaseLayout> {
   List<Widget> _getPages() {
     return [
       MainScreen(isLogged: isUserLogged), 
-      MealPlanScreen(key: _mealPlanKey), // Agganciata la chiave globale
+      MealPlanScreen(key: _mealPlanKey), 
       Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))), 
       const DispensaScreen(), 
-      const UserProfileScreen(), 
+      UserProfileScreen(
+        onLogout: () {
+          setState(() {
+            isUserLogged = false;
+          });
+        },
+      ), 
       const ListaIngredientiScreen(), 
     ];
   }
@@ -268,19 +274,29 @@ class _BaseLayoutState extends State<BaseLayout> {
           return;
         }
 
-        if (index == 4 && !isUserLogged) {
-          final hasLoggedIn = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AuthScreen()),
-          );
+        if (index == 4) {
+          if (!isUserLogged) {
+            // Se non è loggato, lo mandiamo alla pagina di autenticazione
+            final hasLoggedIn = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AuthScreen()),
+            );
 
-          if (!mounted) return;
+            if (!mounted) return;
 
-          if (hasLoggedIn == true) {
-            setState(() {
-              isUserLogged = true;
-              _selectedIndex = 4; 
-            });
+            if (hasLoggedIn == true) {
+              // Controlliamo se SharedPreferences si è aggiornato correttamente
+              final prefs = await SharedPreferences.getInstance();
+              final uid = prefs.getString('logged_in_uid');
+              
+              setState(() {
+                isUserLogged = (uid != null && uid.isNotEmpty && uid != 'null');
+                _selectedIndex = 4; // Ci sposta sulla pagina del profilo appena loggato
+              });
+            }
+          } else {
+            // Se è già loggato, mostra semplicemente la scheda del profilo
+            setState(() => _selectedIndex = index);
           }
           return;
         }
