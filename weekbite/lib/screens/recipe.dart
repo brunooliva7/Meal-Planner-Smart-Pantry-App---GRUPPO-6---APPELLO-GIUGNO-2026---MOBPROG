@@ -373,6 +373,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               background: Builder(
                 builder: (context) {
                   String imgPath = _dynamicRecipeData['image'] ?? '';
+                  imgPath = imgPath.replaceAll('file://', '');
                   
                   Widget imageWidget;
                   if (imgPath.startsWith('http')) {
