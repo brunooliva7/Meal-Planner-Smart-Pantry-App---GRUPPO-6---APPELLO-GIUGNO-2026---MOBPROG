@@ -9,6 +9,7 @@ import 'screens/createplanner.dart';
 import 'screens/user_profile_screen.dart';
 import 'screens/auth_screen.dart'; 
 import 'screens/create_recipe_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -79,6 +80,28 @@ class _BaseLayoutState extends State<BaseLayout> {
   // Usiamo una GlobalKey per notificare e forzare il refresh di MealPlanScreen quando torniamo dal Crea Planner
   final GlobalKey<MealPlanScreenState> _mealPlanKey = GlobalKey<MealPlanScreenState>();
 
+  @override
+  void initState() {
+    super.initState();
+    _checkPersistentLogin(); // Controlla la memoria appena si apre l'app!
+  }
+
+  Future<void> _checkPersistentLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uid = prefs.getString('logged_in_uid');
+      
+      // Se trova l'ID salvato sul telefono, l'utente entra direttamente!
+      if (uid != null && uid.isNotEmpty) {
+        setState(() {
+          isUserLogged = true;
+        });
+      }
+    } catch (e) {
+      print("Errore caricamento sessione SharedPreferences: $e");
+    }
+  }
+  
   List<Widget> _getPages() {
     return [
       MainScreen(isLogged: isUserLogged), 

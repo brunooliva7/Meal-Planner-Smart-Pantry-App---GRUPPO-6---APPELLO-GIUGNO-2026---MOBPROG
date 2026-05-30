@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:translator/translator.dart';
 import 'recipe.dart'; 
 import '../database/database_helper.dart'; // 📂 Importazione del Database
+import 'dart:io';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -420,14 +421,40 @@ class _SearchScreenState extends State<SearchScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                        image: DecorationImage(
-                                          image: NetworkImage(recipe['image'] ?? 'https://via.placeholder.com/150'),
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
+                                    child: Builder(
+                                      builder: (context) {
+                                        // 1. Estrai il path e pulisci eventuali "file://"
+                                        String imgPath = recipe['image'] ?? '';
+                                        imgPath = imgPath.replaceAll('file://', '');
+
+                                        // 2. Widget condizionale sicuro
+                                        Widget imageWidget;
+                                        if (imgPath.startsWith('http')) {
+                                          imageWidget = Image.network(
+                                            imgPath,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                                          );
+                                        } else if (imgPath.isNotEmpty) {
+                                          // Importa 'dart:io' in cima al file se non c'è
+                                          imageWidget = Image.file(
+                                            File(imgPath),
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, color: Colors.grey)),
+                                          );
+                                        } else {
+                                          imageWidget = Container(color: Colors.grey[200], child: const Icon(Icons.restaurant_menu, color: Colors.grey));
+                                        }
+
+                                        // 3. Ritorna l'immagine tagliata perfettamente
+                                        return ClipRRect(
+                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: imageWidget,
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                   Padding(

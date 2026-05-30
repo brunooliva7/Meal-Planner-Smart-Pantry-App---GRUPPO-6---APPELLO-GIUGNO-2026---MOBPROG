@@ -32,8 +32,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool isFavorite = false;
   bool isEditing = false; 
   
-  late int servings;
-  late int originalServings;
+  late int servings = 2;
+  late int originalServings = 2;
   bool isLocalLoading = false; 
   bool isTranslating = false;
   
@@ -271,7 +271,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           isDownloaded = true; 
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Ricetta salvata nel Database SQLite locale!", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+          SnackBar(content: Text("Ricetta salvata", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
         );
       }
     });
@@ -295,7 +295,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Tutte le modifiche sono state salvate in SQLite!", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+      SnackBar(content: Text("Tutte le modifiche sono state salvate", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
     );
   }
 
@@ -373,6 +373,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
               background: Builder(
                 builder: (context) {
                   String imgPath = _dynamicRecipeData['image'] ?? '';
+                  imgPath = imgPath.replaceAll('file://', '');
                   
                   Widget imageWidget;
                   if (imgPath.startsWith('http')) {
@@ -428,7 +429,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         const SizedBox(width: 24),
                         Icon(isDownloaded ? Icons.cloud_done : Icons.cloud_download_outlined, color: isDownloaded ? primaryGreen : unselectedIconColor, size: 20),
                         const SizedBox(width: 6),
-                        Text(isDownloaded ? "Salvato nel DB" : "Solo Online", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                        Text(isDownloaded ? "Salvato" : "Solo Online", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
                       ],
                     ),
                     const SizedBox(height: 24),
