@@ -92,22 +92,51 @@ class _StatsScreenState extends State<StatsScreen> {
     }
 
     // ==========================================================
-    // 🥫 INTERCETTAZIONE DISPENSA
+    // 🥫 INTERCETTAZIONE DISPENSA VERA (DA SQLITE)
     // ==========================================================
-    final prefs = await SharedPreferences.getInstance();
-    final String? dispensaStr = prefs.getString('dispensa_items');
-    if (dispensaStr != null) {
-      // Quando il team abiliterà il salvataggio dei cibi, basterà scommentare qui:
-      // List prodottiVeri = json.decode(dispensaStr);
-      // prodottiScadenza = List<Map<String, dynamic>>.from(prodottiVeri);
+    List<Map<String, dynamic>> prodottiInScadenzaReali = [];
+    
+    try {
+      // Peschiamo la dispensa reale dal database del team
+      final ingredientiDispensa = await DatabaseHelper.instance.getIngredienti('dispensa');
+      final DateTime oggi = DateTime.now();
+
+      for (var ing in ingredientiDispensa) {
+        // Calcoliamo la differenza in giorni tra la scadenza e oggi
+        int giorniRimanenti = ing.dataScadenza.difference(oggi).inDays;
+
+        // Selezioniamo solo i prodotti che scadono tra meno di 7 giorni (o già scaduti)
+        if (giorniRimanenti <= 7) {
+          prodottiInScadenzaReali.add({
+            'nome': ing.nome,
+            'giorni': giorniRimanenti < 0 ? "Scaduto da ${giorniRimanenti.abs()} gg" : "Tra $giorniRimanenti gg",
+            'critico': giorniRimanenti <= 2, // Rosso se mancano meno di 3 giorni
+          });
+        }
+      }
+
+      // Ordiniamo la lista mettendo prima quelli più critici/scaduti
+      prodottiInScadenzaReali.sort((a, b) {
+        bool criticoA = a['critico'] as bool;
+        bool criticoB = b['critico'] as bool;
+        if (criticoA && !criticoB) return -1;
+        if (!criticoA && criticoB) return 1;
+        return 0;
+      });
+
+    } catch (e) {
+      print("Errore lettura dispensa per statistiche: $e");
     }
 
     // Aggiorna l'interfaccia con tutti i dati raccolti
-    setState(() {
-      totalePreferite = counterPreferite;
-      categorieFrequenti = finalCats;
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        totalePreferite = counterPreferite;
+        categorieFrequenti = finalCats;
+        prodottiScadenza = prodottiInScadenzaReali;
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -240,7 +269,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      "La tua dispensa è vuota.\nAggiungi prodotti per vedere le scadenze qui.",
+                      "La tua dispensa è al sicuro.\nNessun prodotto in scadenza a breve.",
                       textAlign: TextAlign.center,
                       style: GoogleFonts.montserrat(color: Colors.grey, fontStyle: FontStyle.italic),
                     ),
