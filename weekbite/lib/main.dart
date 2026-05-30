@@ -7,7 +7,7 @@ import 'screens/main_screen.dart';
 import 'screens/mealplanner.dart'; 
 import 'screens/createplanner.dart';
 import 'screens/user_profile_screen.dart';
-import 'screens/auth_screen.dart'; 
+import 'screens/auth_screen.dart'; // 🔴 IMPORTAZIONE DELLA SCHERMATA DI LOGIN
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -75,7 +75,7 @@ class _BaseLayoutState extends State<BaseLayout> {
   int _selectedIndex = 0;
 
   // 🔴 VARIABILE PER CONTROLLARE SE L'UTENTE È LOGGATO
-  bool isUserLogged = false; 
+  bool isUserLogged = false;
 
   List<Widget> _getPages() {
     return [
@@ -137,7 +137,15 @@ class _BaseLayoutState extends State<BaseLayout> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text(appTitle),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.restaurant_menu, color: primaryGreen),
+            SizedBox(width: 8),
+            const Text(appTitle),
+          ]
+        ),
       ),
       extendBody: true, 
       body: _getPages()[_selectedIndex],

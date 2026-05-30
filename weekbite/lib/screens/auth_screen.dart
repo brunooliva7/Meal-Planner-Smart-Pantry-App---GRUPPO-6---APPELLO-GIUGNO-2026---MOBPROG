@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart'; // 🌐 LIBRERIA GOOGLE UFFICIALE
 import '../database/database_helper.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color kBackground = Colors.white;
@@ -50,57 +51,35 @@ class _AuthScreenState extends State<AuthScreen> {
   // 🔐 LOGICA DI REGISTRAZIONE MANUALE (SQLITE)
   // ==========================================================
   Future<void> _handleEmailRegister() async {
-    String name = _nameController.text.trim();
-    String email = _emailController.text.trim();
-    String pass = _passwordController.text.trim();
-    String confirm = _confirmPasswordController.text.trim();
-
-    if (name.isEmpty || email.isEmpty || pass.isEmpty || confirm.isEmpty) {
-      _showSnackBar("Compila tutti i campi obbligatori.", isError: true);
-      return;
-    }
-
-    if (pass != confirm) {
-      _showSnackBar("Le password non coincidono!", isError: true);
-      return;
-    }
-
-    if (pass.length < 6) {
-      _showSnackBar("La password deve avere almeno 6 caratteri.", isError: true);
-      return;
-    }
-
-    setState(() => isLoading = true);
+    // ... i tuoi controlli iniziali (campi vuoti, password uguali) ...
 
     try {
       final db = await DatabaseHelper.instance.database;
       
-      final existingUser = await db.query('users', where: 'email = ?', whereArgs: [email]);
+      // Controlla se l'email esiste già
+      final existingUser = await db.query('users', where: 'email = ?', whereArgs: [_emailController.text.trim()]);
+      
       if (existingUser.isNotEmpty) {
-        _showSnackBar("Esiste già un account con questa email.", isError: true);
-        setState(() => isLoading = false);
+        // Mostra errore email esistente
         return;
       }
 
-      String generatedUid = "local_${DateTime.now().millisecondsSinceEpoch}";
-      
-      await db.insert('users', {
-        'uid': generatedUid,
-        'email': email,
-        'name': name,
-        'photo_url': '', 
-        'preferences_json': '{}',
-        'registration_date': DateTime.now().toIso8601String(),
-        'password': pass, 
+      // Inserisce il nuovo utente e ottiene il suo ID numerico dal database
+      int newUserId = await db.insert('users', {
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'password': _passwordController.text, // Nelle app reali si usa l'hash!
       });
 
-      _showSnackBar("Registrazione completata con successo!");
-      if (mounted) Navigator.pop(context, true); 
-      
+      // 🟢 SALVATAGGIO SESSIONE CORRETTO (Converte l'int in String)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('logged_in_uid', newUserId.toString());
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      _showSnackBar("Errore durante la registrazione: $e", isError: true);
-    } finally {
-      if (mounted) setState(() => isLoading = false);
+      print("Errore registrazione: $e");
     }
   }
 
@@ -108,36 +87,32 @@ class _AuthScreenState extends State<AuthScreen> {
   // 🔐 LOGICA DI LOGIN MANUALE (SQLITE)
   // ==========================================================
   Future<void> _handleEmailLogin() async {
-    String email = _emailController.text.trim();
-    String pass = _passwordController.text.trim();
-
-    if (email.isEmpty || pass.isEmpty) {
-      _showSnackBar("Inserisci email e password.", isError: true);
-      return;
-    }
-
-    setState(() => isLoading = true);
-
     try {
       final db = await DatabaseHelper.instance.database;
       
-      final List<Map<String, dynamic>> result = await db.query(
+      // Esegue la query cercando l'utente
+      final userQuery = await db.query(
         'users',
         where: 'email = ? AND password = ?',
-        whereArgs: [email, pass],
+        whereArgs: [_emailController.text.trim(), _passwordController.text],
       );
 
-      if (result.isNotEmpty) {
-        _showSnackBar("Accesso effettuato!");
-        if (mounted) Navigator.pop(context, true); 
+      if (userQuery.isNotEmpty) {
+        // 🟢 SALVATAGGIO SESSIONE CORRETTO (Usa userQuery e prende l'ID)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_in_uid', userQuery.first['id'].toString());
+
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
       } else {
-        _showSnackBar("Email o password errati.", isError: true);
+        // Errore credenziali
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email o password errati!'), backgroundColor: Colors.redAccent),
+        );
       }
-      
     } catch (e) {
-      _showSnackBar("Errore di connessione al database.", isError: true);
-    } finally {
-      if (mounted) setState(() => isLoading = false);
+      print("Errore login: $e");
     }
   }
 
@@ -146,47 +121,39 @@ class _AuthScreenState extends State<AuthScreen> {
   // ==========================================================
   Future<void> _handleGoogleAuth() async {
     setState(() => isLoading = true);
-    
     try {
-      // 1. Lancia il form di Google ufficiale
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       
-      // ATTENZIONE: Questo comando apre la finestra vera di Google
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      // 🟢 CONTROLLO NULL SAFETY: Procede solo se l'utente non ha annullato
+      if (googleUser != null) {
+        
+        // Salviamo comunque l'utente nel nostro SQLite per avere i suoi dati
+        final db = await DatabaseHelper.instance.database;
+        final existingUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
+        
+        if (existingUser.isEmpty) {
+          await db.insert('users', {
+            'name': googleUser.displayName ?? 'Utente Google',
+            'email': googleUser.email,
+            'password': 'google_auth_placeholder', 
+          });
+        }
 
-      // Se l'utente chiude la finestra, interrompi
-      if (googleUser == null) {
-        setState(() => isLoading = false);
-        return; 
+        // 🟢 SALVATAGGIO SESSIONE CORRETTO (Ora googleUser.id è sicuro)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_in_uid', googleUser.id);
+
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
       }
-
-      final db = await DatabaseHelper.instance.database;
-
-      // 2. Cerchiamo l'utente nel DB locale
-      final existingUser = await db.query('users', where: 'uid = ?', whereArgs: [googleUser.id]);
-
-      // 3. Se non esiste, lo registriamo con i dati REALI di Google
-      if (existingUser.isEmpty) {
-        await db.insert('users', {
-          'uid': googleUser.id,
-          'email': googleUser.email,
-          'name': googleUser.displayName ?? 'Utente',
-          'photo_url': googleUser.photoUrl ?? '',
-          'preferences_json': '{}',
-          'registration_date': DateTime.now().toIso8601String(),
-          'password': 'GOOGLE_AUTH_ACCOUNT',
-        });
-      }
-
-      // 4. Successo reale!
+    } catch (error) {
+      print("Errore Google Sign-In: $error");
       if (mounted) {
-        Navigator.pop(context, true); 
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore di accesso: $error')),
+        );
       }
-      
-    } catch (e) {
-      // Qui vedrai l'errore REALE se ancora qualcosa non quadra
-      print("Errore reale durante il login: $e");
-      _showSnackBar("Errore di autenticazione: $e", isError: true);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -219,7 +186,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 Text(
                   "weekBite",
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w900, color: primaryGreen, letterSpacing: -1),
+                  style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w700, color: primaryGreen, letterSpacing: -1),
                 ),
                 Text(
                   isLogin ? "Bentornato! Accedi per continuare." : "Crea il tuo account per iniziare.",

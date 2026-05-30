@@ -8,7 +8,6 @@ import 'recipe.dart';
 import '../database/database_helper.dart';
 
 class MainScreen extends StatefulWidget {
-  // 🟢 Riceve lo stato di login direttamente dal layout principale
   final bool isLogged;
 
   const MainScreen({super.key, this.isLogged = false});
@@ -32,7 +31,6 @@ class _MainScreenState extends State<MainScreen> {
     _refreshAllData();
   }
 
-  // Caricamento condizionale: carica i dati personali solo se l'utente è loggato
   Future<void> _refreshAllData() async {
     await _loadViralRecipes();
     if (widget.isLogged) {
@@ -41,7 +39,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 1. CARICAMENTO PREFERITI
   Future<void> _loadUserFavorites() async {
     setState(() => isLoadingFavorites = true);
     try {
@@ -58,19 +55,50 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 2. CARICAMENTO DISPENSA TRAMITE API
+  // 🟢 NUOVA LOGICA DISPENSA: Traduzione + Cache Giornaliera
   Future<void> _loadPantryBasedRecipes() async {
     setState(() => isLoadingPantry = true);
+    String todayStr = DateTime.now().toString().split(' ')[0];
+
     try {
-      // Simulazione ingredienti reali dell'utente
-      List<String> myIngredients = ['tomato', 'pasta', 'cheese']; 
-      
-      if (myIngredients.isEmpty) {
+      // 1. VERIFICA CACHE LOCALE (Scaricata una volta al giorno)
+      List<dynamic> cachedPantry = await DatabaseHelper.instance.getPantryCache(todayStr);
+
+      if (cachedPantry.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            pantryRecipes = cachedPantry;
+            isLoadingPantry = false;
+          });
+        }
+        return; // Esce: dati presi dal database locale, zero chiamate API!
+      }
+
+      // 2. RECUPERO INGREDIENTI DALLA DISPENSA
+      // Assumiamo che tu abbia/creerai un metodo getDispensaIngredients() nel DB
+      List<String> myIngredientsItalian = [];
+      try {
+        // myIngredientsItalian = await DatabaseHelper.instance.getDispensaIngredients();
+        if(myIngredientsItalian.isEmpty) myIngredientsItalian = ['pomodoro', 'pasta', 'basilico']; // Dati finti di sicurezza
+      } catch (e) {
+        myIngredientsItalian = ['pomodoro', 'pasta', 'basilico']; 
+      }
+
+      if (myIngredientsItalian.isEmpty) {
         setState(() => isLoadingPantry = false);
         return;
       }
 
-      final ingredientsQuery = myIngredients.join(',');
+      // 3. TRADUZIONE INGREDIENTI (IT -> EN)
+      final translator = GoogleTranslator();
+      List<String> englishIngredients = [];
+      for (String ing in myIngredientsItalian) {
+        var t = await translator.translate(ing, from: 'it', to: 'en');
+        englishIngredients.add(t.text.toLowerCase());
+      }
+
+      // 4. CHIAMATA API CON GLI INGREDIENTI IN INGLESE
+      final ingredientsQuery = englishIngredients.join(',+');
       const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
       final url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientsQuery&number=5&apiKey=$apiKey';
 
@@ -78,11 +106,14 @@ class _MainScreenState extends State<MainScreen> {
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
         
-        final translator = GoogleTranslator();
+        // 5. TRADUZIONE RISULTATI (EN -> IT)
         for (var recipe in data) {
-          var translation = await translator.translate(recipe['title'], from: 'en', to: 'it');
+          var translation = await translator.translate(recipe['title'] ?? '', from: 'en', to: 'it');
           recipe['title'] = translation.text;
         }
+
+        // 6. SALVATAGGIO IN CACHE PER IL RESTO DELLA GIORNATA
+        await DatabaseHelper.instance.savePantryCache(data, todayStr);
 
         if (mounted) {
           setState(() {
@@ -90,6 +121,8 @@ class _MainScreenState extends State<MainScreen> {
             isLoadingPantry = false;
           });
         }
+      } else {
+        if (mounted) setState(() => isLoadingPantry = false);
       }
     } catch (e) {
       print("Errore API Dispensa: $e");
@@ -97,7 +130,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 3. CARICAMENTO RICETTE VIRALI (Cache locale quotidiana)
   Future<void> _loadViralRecipes() async {
     String todayStr = DateTime.now().toString().split(' ')[0];
     List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr);
@@ -152,10 +184,7 @@ class _MainScreenState extends State<MainScreen> {
                 color: theme.colorScheme.primary,
                 child: CustomScrollView(
                   slivers: [
-                    
-                    // 🟢 SEZIONE CONDIZIONALE: Compare solo se l'utente è loggato
                     if (widget.isLogged) ...[
-                      // Sezione Preferiti
                       _buildSectionHeader("I tuoi Preferiti", theme),
                       SliverToBoxAdapter(
                         child: isLoadingFavorites 
@@ -163,7 +192,6 @@ class _MainScreenState extends State<MainScreen> {
                           : _buildHorizontalList(favoriteRecipes, false),
                       ),
 
-                      // Sezione Dispensa
                       _buildSectionHeader("In base alla tua Dispensa", theme),
                       SliverToBoxAdapter(
                         child: isLoadingPantry 
@@ -172,7 +200,6 @@ class _MainScreenState extends State<MainScreen> {
                       ),
                     ],
 
-                    // 🌍 SEZIONE SEMPRE VISIBILE: Ricette virali del giorno
                     _buildSectionHeader("Esplora Ricette Virali", theme, isLarge: true),
                     _buildApiSliverGrid(theme),
                   ],
@@ -241,6 +268,27 @@ class _MainScreenState extends State<MainScreen> {
         itemCount: list.length,
         itemBuilder: (context, index) {
           final recipe = list[index];
+          String imageUrl = recipe['image'] ?? '';
+
+          Widget imageWidget;
+          if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
+            imageWidget = Image.network(
+              imageUrl,
+              height: 100,
+              width: 150,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                height: 100, width: 150, color: Colors.grey[200],
+                child: const Icon(Icons.restaurant_menu, color: Colors.grey, size: 40),
+              ),
+            );
+          } else {
+            imageWidget = Container(
+              height: 100, width: 150, color: Colors.grey[200],
+              child: const Icon(Icons.restaurant_menu, color: Colors.grey, size: 40),
+            );
+          }
+
           return Container(
             width: 150,
             margin: const EdgeInsets.only(right: 12),
@@ -252,12 +300,7 @@ class _MainScreenState extends State<MainScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: Image.network(
-                      recipe['image'] ?? 'https://via.placeholder.com/150',
-                      height: 100,
-                      width: 150,
-                      fit: BoxFit.cover,
-                    ),
+                    child: imageWidget, 
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -287,6 +330,25 @@ class _MainScreenState extends State<MainScreen> {
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final recipe = viralRecipes[index];
+            String imageUrl = recipe['image'] ?? '';
+
+            Widget imageWidget;
+            if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
+              imageWidget = Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Colors.grey[200],
+                  child: const Center(child: Icon(Icons.restaurant_menu, color: Colors.grey, size: 50)),
+                ),
+              );
+            } else {
+              imageWidget = Container(
+                color: Colors.grey[200],
+                child: const Center(child: Icon(Icons.restaurant_menu, color: Colors.grey, size: 50)),
+              );
+            }
+
             return InkWell(
               onTap: () => Navigator.push(context, MaterialPageRoute(
                 builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: true))),
@@ -296,12 +358,12 @@ class _MainScreenState extends State<MainScreen> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15),
-                      child: Image.network(recipe['image'], fit: BoxFit.cover),
+                      child: imageWidget, 
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(recipe['title'], maxLines: 2, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14)),
+                    child: Text(recipe['title'] ?? 'Senza titolo', maxLines: 2, style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ],
               ),
