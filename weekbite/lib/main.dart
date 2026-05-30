@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/dispensa.dart';
+import 'screens/lista_spesa.dart';
 import 'screens/ricette.dart'; 
 import 'screens/main_screen.dart';
 import 'screens/mealplanner.dart'; 
@@ -108,6 +109,7 @@ class _BaseLayoutState extends State<BaseLayout> {
       Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))), 
       const DispensaScreen(), 
       const UserProfileScreen(), 
+      const ListaIngredientiScreen(), 
     ];
   }
 
@@ -157,7 +159,7 @@ class _BaseLayoutState extends State<BaseLayout> {
       body: _getPages()[_selectedIndex],
       bottomNavigationBar: SafeArea(
         child: Container(
-          margin: const EdgeInsets.only(left: 36, right: 36, bottom: 12), 
+          margin: const EdgeInsets.only(left: 16, right: 16, bottom: 12), 
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), 
           decoration: BoxDecoration(
             color: Colors.white,
@@ -167,11 +169,12 @@ class _BaseLayoutState extends State<BaseLayout> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNavItem(Icons.home_filled, 0),
-              _buildNavItem(Icons.calendar_month, 1),
-              _buildNavItem(Icons.add_box_outlined, 2, size: 28),
-              _buildNavItem(Icons.kitchen, 3),
-              _buildNavItem(Icons.person_outline, 4),
+              _buildNavItem(Icons.home_filled,"Home", 0),
+              _buildNavItem(Icons.calendar_month,"Piani", 1),
+              _buildNavItem(Icons.add_box_outlined,"Aggiungi", 2, size: 28),
+              _buildNavItem(Icons.checklist_rtl_rounded,"Lista", 5, size: 28),
+              _buildNavItem(Icons.kitchen,"Dispensa", 3),
+              _buildNavItem(Icons.person_outline,"Account", 4),
             ],
           ),
         ),
@@ -179,11 +182,12 @@ class _BaseLayoutState extends State<BaseLayout> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, int index, {double size = 26}) {
+  Widget _buildNavItem(IconData icon,String label, int index, {double size = 26}) {
     bool isSelected = _selectedIndex == index;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
+
       onTapDown: (details) async {
         if (index == 1) {
           if (!isUserLogged) {
@@ -280,7 +284,26 @@ class _BaseLayoutState extends State<BaseLayout> {
 
         setState(() => _selectedIndex = index);
       },
-      child: Icon(icon, size: size, color: isSelected ? primaryGreen : unselectedIconColor),
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // Fondamentale per non far esplodere la BottomBar in altezza
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon, 
+            size: size, 
+            color: isSelected ? primaryGreen : Colors.grey, // Colore dinamico
+          ),
+          const SizedBox(height: 4), // Piccolo spazio tra icona e scritta
+          Text(
+            label,
+            style: GoogleFonts.montserrat(
+              fontSize: 10, // Testo piccolino ed elegante
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected ? primaryGreen : Colors.grey,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
