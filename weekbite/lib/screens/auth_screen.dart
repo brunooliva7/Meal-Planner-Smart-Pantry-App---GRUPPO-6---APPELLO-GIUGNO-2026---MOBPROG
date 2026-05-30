@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_sign_in/google_sign_in.dart'; // 🌐 LIBRERIA GOOGLE UFFICIALE
+import 'package:google_sign_in/google_sign_in.dart'; 
 import '../database/database_helper.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,6 +17,9 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  // 🟢 AGGIUNTA LA FORM KEY per la validazione automatica
+  final _formKey = GlobalKey<FormState>();
+
   bool isLogin = true; 
 
   final TextEditingController _nameController = TextEditingController();
@@ -51,27 +54,39 @@ class _AuthScreenState extends State<AuthScreen> {
   // 🔐 LOGICA DI REGISTRAZIONE MANUALE (SQLITE)
   // ==========================================================
   Future<void> _handleEmailRegister() async {
-    // ... i tuoi controlli iniziali (campi vuoti, password uguali) ...
+    // 🟢 CONTROLLO VALIDAZIONE: Verifica che tutti i campi siano compilati correttamente
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      _showSnackBar("Le password non coincidono!", isError: true);
+      return;
+    }
+
+    setState(() => isLoading = true);
 
     try {
       final db = await DatabaseHelper.instance.database;
       
-      // Controlla se l'email esiste già
       final existingUser = await db.query('users', where: 'email = ?', whereArgs: [_emailController.text.trim()]);
       
       if (existingUser.isNotEmpty) {
-        // Mostra errore email esistente
+        _showSnackBar("Questa email è già registrata!", isError: true);
+        setState(() => isLoading = false);
         return;
       }
 
-      // Inserisce il nuovo utente e ottiene il suo ID numerico dal database
+      // Estraiamo un nickname provvisorio dalla prima parte dell'email
+      String generatedNickname = _emailController.text.trim().split('@').first;
+
+      // 🟢 BUG FIXATO: Inserisce l'utente e prende DIRETTAMENTE il suo ID senza query inutili
       int newUserId = await db.insert('users', {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
-        'password': _passwordController.text, // Nelle app reali si usa l'hash!
+        'password': _passwordController.text, 
+        'nickname': generatedNickname,
       });
 
-      // 🟢 SALVATAGGIO SESSIONE CORRETTO (Converte l'int in String)
+      // Salvataggio Sessione
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('logged_in_uid', newUserId.toString());
 
@@ -80,6 +95,9 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (e) {
       print("Errore registrazione: $e");
+      _showSnackBar("Errore durante la registrazione", isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -87,10 +105,13 @@ class _AuthScreenState extends State<AuthScreen> {
   // 🔐 LOGICA DI LOGIN MANUALE (SQLITE)
   // ==========================================================
   Future<void> _handleEmailLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => isLoading = true);
+
     try {
       final db = await DatabaseHelper.instance.database;
       
-      // Esegue la query cercando l'utente
       final userQuery = await db.query(
         'users',
         where: 'email = ? AND password = ?',
@@ -98,7 +119,6 @@ class _AuthScreenState extends State<AuthScreen> {
       );
 
       if (userQuery.isNotEmpty) {
-        // 🟢 SALVATAGGIO SESSIONE CORRETTO (Usa userQuery e prende l'ID)
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('logged_in_uid', userQuery.first['id'].toString());
 
@@ -106,42 +126,44 @@ class _AuthScreenState extends State<AuthScreen> {
           Navigator.pop(context, true);
         }
       } else {
-        // Errore credenziali
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email o password errati!'), backgroundColor: Colors.redAccent),
-        );
+        _showSnackBar("Email o password errati!", isError: true);
       }
     } catch (e) {
       print("Errore login: $e");
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
   // ==========================================================
-  // 🌐 LOGICA DI AUTENTICAZIONE REALE CON GOOGLE
+  // 🌐 LOGICA DI AUTENTICAZIONE CON GOOGLE
   // ==========================================================
   Future<void> _handleGoogleAuth() async {
     setState(() => isLoading = true);
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       
-      // 🟢 CONTROLLO NULL SAFETY: Procede solo se l'utente non ha annullato
       if (googleUser != null) {
-        
-        // Salviamo comunque l'utente nel nostro SQLite per avere i suoi dati
         final db = await DatabaseHelper.instance.database;
         final existingUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
         
         if (existingUser.isEmpty) {
+          String generatedNickname = googleUser.email.split('@').first;
           await db.insert('users', {
             'name': googleUser.displayName ?? 'Utente Google',
             'email': googleUser.email,
             'password': 'google_auth_placeholder', 
+            'nickname': generatedNickname,
           });
         }
 
-        // 🟢 SALVATAGGIO SESSIONE CORRETTO (Ora googleUser.id è sicuro)
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('logged_in_uid', googleUser.id);
+        
+        // Risincronizza l'ID per sicurezza dal database locale SQLite
+        final syncUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
+        if (syncUser.isNotEmpty) {
+          await prefs.setString('logged_in_uid', syncUser.first['id'].toString());
+        }
 
         if (mounted) {
           Navigator.pop(context, true);
@@ -149,11 +171,7 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (error) {
       print("Errore Google Sign-In: $error");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Errore di accesso: $error')),
-        );
-      }
+      _showSnackBar("Errore di accesso con Google", isError: true);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -163,7 +181,6 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kBackground,
-      
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -172,175 +189,183 @@ class _AuthScreenState extends State<AuthScreen> {
           onPressed: () => Navigator.pop(context, false), 
         ),
       ),
-      
       body: SafeArea(
         child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(Icons.restaurant_menu, size: 80, color: primaryGreen),
-                const SizedBox(height: 16),
-                Text(
-                  "weekBite",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w700, color: primaryGreen, letterSpacing: -1),
-                ),
-                Text(
-                  isLogin ? "Bentornato! Accedi per continuare." : "Crea il tuo account per iniziare.",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.montserrat(fontSize: 14, color: kTextMuted, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 40),
-
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 300),
-                  child: !isLogin
-                      ? Padding(
-                          padding: const EdgeInsets.only(bottom: 16.0),
-                          child: TextField(
-                            controller: _nameController,
-                            style: GoogleFonts.montserrat(),
-                            decoration: _buildInputDecoration("Nome e Cognome", Icons.person_outline),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: GoogleFonts.montserrat(),
-                  decoration: _buildInputDecoration("Indirizzo Email", Icons.email_outlined),
-                ),
-                const SizedBox(height: 16),
-
-                TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: GoogleFonts.montserrat(),
-                  decoration: _buildInputDecoration(
-                    "Password", 
-                    Icons.lock_outline,
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: kTextMuted),
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                    ),
+          // 🟢 AGGIUNTO IL FORM: Necessario per far funzionare _formKey
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(Icons.restaurant_menu, size: 80, color: primaryGreen),
+                  const SizedBox(height: 16),
+                  Text(
+                    "weekBite",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.montserrat(fontSize: 32, fontWeight: FontWeight.w700, color: primaryGreen, letterSpacing: -1),
                   ),
-                ),
+                  Text(
+                    isLogin ? "Bentornato! Accedi per continuare." : "Crea il tuo account per iniziare.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.montserrat(fontSize: 14, color: kTextMuted, fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 40),
 
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 300),
-                  child: !isLogin
-                      ? Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: TextField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscureConfirm,
-                            style: GoogleFonts.montserrat(),
-                            decoration: _buildInputDecoration(
-                              "Conferma Password", 
-                              Icons.lock_reset,
-                              suffixIcon: IconButton(
-                                icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, color: kTextMuted),
-                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                              ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    child: !isLogin
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 16.0),
+                            // 🟢 CAMBIATO DA TextField a TextFormField
+                            child: TextFormField(
+                              controller: _nameController,
+                              style: GoogleFonts.montserrat(),
+                              decoration: _buildInputDecoration("Nome e Cognome", Icons.person_outline),
+                              validator: (value) => !isLogin && (value == null || value.trim().isEmpty) ? "Inserisci il tuo nome" : null,
                             ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-
-                const SizedBox(height: 32),
-
-                SizedBox(
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : (isLogin ? _handleEmailLogin : _handleEmailRegister),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryGreen,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                    child: isLoading 
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(
-                            isLogin ? "Accedi" : "Registrati",
-                            style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Text("OPPURE", style: GoogleFonts.montserrat(color: kTextMuted, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                    Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                SizedBox(
-                  height: 54,
-                  child: OutlinedButton(
-                    onPressed: isLoading ? null : _handleGoogleAuth,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: Colors.grey[300]!, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: isLoading 
-                        ? const SizedBox(
-                            height: 20, 
-                            width: 20, 
-                            child: CircularProgressIndicator(color: primaryGreen, strokeWidth: 2)
                           )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Image.network(
-                                'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-                                height: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                isLogin ? "Accedi con Google" : "Registrati con Google",
-                                style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark),
-                              ),
-                            ],
-                          ),
+                        : const SizedBox.shrink(),
                   ),
-                ),
-                const SizedBox(height: 32),
 
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      isLogin ? "Non hai un account?" : "Hai già un account?",
-                      style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          isLogin = !isLogin;
-                          _passwordController.clear();
-                          _confirmPasswordController.clear();
-                        });
-                      },
-                      child: Text(
-                        isLogin ? "Registrati ora" : "Accedi",
-                        style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: GoogleFonts.montserrat(),
+                    decoration: _buildInputDecoration("Indirizzo Email", Icons.email_outlined),
+                    validator: (value) => value == null || value.trim().isEmpty || !value.contains('@') ? "Inserisci un'email valida" : null,
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    style: GoogleFonts.montserrat(),
+                    decoration: _buildInputDecoration(
+                      "Password", 
+                      Icons.lock_outline,
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: kTextMuted),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                    validator: (value) => value == null || value.trim().isEmpty ? "Inserisci la password" : null,
+                  ),
+
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    child: !isLogin
+                        ? Padding(
+                            padding: const EdgeInsets.only(top: 16.0),
+                            child: TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: _obscureConfirm,
+                              style: GoogleFonts.montserrat(),
+                              decoration: _buildInputDecoration(
+                                "Conferma Password", 
+                                Icons.lock_reset,
+                                suffixIcon: IconButton(
+                                  icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, color: kTextMuted),
+                                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                ),
+                              ),
+                              validator: (value) => !isLogin && value != _passwordController.text ? "Le password non coincidono" : null,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  SizedBox(
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: isLoading ? null : (isLogin ? _handleEmailLogin : _handleEmailRegister),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryGreen,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: isLoading 
+                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text(
+                              isLogin ? "Accedi" : "Registrati",
+                              style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text("OPPURE", style: GoogleFonts.montserrat(color: kTextMuted, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey[300], thickness: 1)),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    height: 54,
+                    child: OutlinedButton(
+                      onPressed: isLoading ? null : _handleGoogleAuth,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey[300]!, width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: isLoading 
+                          ? const SizedBox(
+                              height: 20, 
+                              width: 20, 
+                              child: CircularProgressIndicator(color: primaryGreen, strokeWidth: 2)
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.network(
+                                  'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+                                  height: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  isLogin ? "Accedi con Google" : "Registrati con Google",
+                                  style: GoogleFonts.montserrat(fontSize: 15, fontWeight: FontWeight.w600, color: kTextDark),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        isLogin ? "Non hai un account?" : "Hai già un account?",
+                        style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.w500),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            isLogin = !isLogin;
+                            _passwordController.clear();
+                            _confirmPasswordController.clear();
+                          });
+                        },
+                        child: Text(
+                          isLogin ? "Registrati ora" : "Accedi",
+                          style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -357,8 +382,11 @@ class _AuthScreenState extends State<AuthScreen> {
       filled: true,
       fillColor: Colors.grey[100],
       contentPadding: const EdgeInsets.symmetric(vertical: 16),
+      errorStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: primaryGreen, width: 1.5)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: primaryGreen, width: 1.5)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1.0)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1.5)),
     );
   }
 }

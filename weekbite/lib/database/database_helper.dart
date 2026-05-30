@@ -41,26 +41,25 @@ class DatabaseHelper {
   Future _createDB(Database db, int version) async {
 
     await db.execute('''
-      CREATE TABLE users (
-        uid TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        name TEXT,
-        photo_url TEXT,
-        preferences_json TEXT,
-        registration_date TEXT,
-        password TEXT
-      )
-    ''');
-    
-    await db.execute('''
-      CREATE TABLE user_profiles (
-        user_id INTEGER PRIMARY KEY,
-        peso REAL,
-        altezza REAL,
-        bio TEXT,
-        image_path TEXT
-      )
-    ''');
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT UNIQUE,
+      password TEXT,
+      nickname TEXT
+    )
+  ''');
+  
+  // Tabella Profili
+  await db.execute('''
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      user_id INTEGER PRIMARY KEY,
+      peso REAL,
+      altezza REAL,
+      bio TEXT,
+      image_path TEXT
+    )
+  ''');
     
     await db.execute('''
       CREATE TABLE favorites (

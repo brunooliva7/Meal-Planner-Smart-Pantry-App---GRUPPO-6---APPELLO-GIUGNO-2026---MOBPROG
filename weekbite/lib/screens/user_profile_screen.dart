@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart'; 
+import 'stats_screen.dart';
 import 'recipe.dart'; 
 import '../database/database_helper.dart';
+import 'package:sqflite/sqflite.dart'; // Richiesto per ConflictAlgorithm
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -18,6 +21,7 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  // 🟢 PATTERN INPUT: Chiave globale per la validazione sicura del modulo di modifica
   final _formKey = GlobalKey<FormState>();
 
   bool isUserLogged = false; 
@@ -35,7 +39,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   List<dynamic> myCreatedRecipes = [];
   List<dynamic> savedOfflineRecipes = [];
 
+  // Controller dedicati all'input di testo
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _pesoController = TextEditingController();
   final TextEditingController _altezzaController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
@@ -43,62 +49,68 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Lasciamo che la schermata si disegni per un frame prima di attaccare il DB
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadProfileAndData();
-    });
+    _loadProfileAndData();
   }
 
   @override
   void dispose() {
+    // 🟢 PATTERN INPUT: Rilascio obbligatorio per prevenire Memory Leaks (Slide 04-input-in-ui)
     _nameController.dispose();
+    _nicknameController.dispose();
     _pesoController.dispose();
     _altezzaController.dispose();
     _bioController.dispose();
     super.dispose();
   }
 
-  // 🟢 IL CUORE DELL'OTTIMIZZAZIONE: Caricamento Parallelo
- Future<void> _loadProfileAndData() async {
+  Future<void> _loadProfileAndData() async {
+    if (!mounted) return;
+    setState(() => isLoading = true);
+    
     final prefs = await SharedPreferences.getInstance();
     final String? uid = prefs.getString('logged_in_uid');
 
-    if (uid == null || uid.isEmpty) {
-      if (mounted) setState(() { isUserLogged = false; isLoading = false; });
-      return;
-    }
+    if (uid != null && uid.isNotEmpty) {
+      isUserLogged = true;
+      final db = await DatabaseHelper.instance.database;
+      final int userId = int.parse(uid);
 
-    isUserLogged = true;
-    final db = await DatabaseHelper.instance.database;
-    final int userId = int.parse(uid);
+      // Caricamento asincrono leggero per evitare rallentamenti all'interfaccia
+      final List<Map<String, dynamic>> userQuery = await db.query(
+        'users', where: 'id = ?', whereArgs: [userId],
+      );
 
-    try {
-      // 1. Dati Utente
-      final userQuery = await db.query('users', where: 'id = ?', whereArgs: [userId]);
       if (userQuery.isNotEmpty) {
-        nome = userQuery.first['name']?.toString() ?? 'Utente Registrato';
-        nickname = userQuery.first['email']?.toString().split('@')[0] ?? 'utente_weekbite';
+        nome = userQuery.first['name'] ?? 'Utente Registrato';
+        nickname = userQuery.first['nickname'] ?? userQuery.first['email']?.split('@')[0] ?? 'utente';
       }
 
-      // 2. Info Profilo
-      final profileQuery = await db.query('user_profiles', where: 'user_id = ?', whereArgs: [userId]);
+      final List<Map<String, dynamic>> profileQuery = await db.query(
+        'user_profiles', where: 'user_id = ?', whereArgs: [userId],
+      );
+
       if (profileQuery.isNotEmpty) {
         final data = profileQuery.first;
         peso = data['peso']?.toString() ?? '';
         altezza = data['altezza']?.toString() ?? '';
-        bio = data['bio']?.toString() ?? '';
-        imagePath = data['image_path']?.toString() ?? '';
+        bio = data['bio'] ?? '';
+        imagePath = data['image_path'] ?? '';
       }
 
-      // 3. Preferiti (Usiamo il TUO metodo sicuro dal Database Helper)
+      // Sincronizzazione dei campi del modulo
+      _nameController.text = nome;
+      _nicknameController.text = nickname;
+      _pesoController.text = peso;
+      _altezzaController.text = altezza;
+      _bioController.text = bio;
+
+      // Recupero liste sincronizzate dal DB
       favoriteRecipes = await DatabaseHelper.instance.getAllFavorites();
 
-      // 4. Ricette salvate (SENZA JSON, velocissimo)
-      final savedQuery = await db.query('saved_recipes', columns: ['id', 'title', 'image']);
-      
+      final List<Map<String, dynamic>> savedQuery = await db.query('saved_recipes', columns: ['id', 'title', 'image']);
       List<dynamic> mine = [];
       List<dynamic> saved = [];
-      
+
       for (var row in savedQuery) {
         int rId = row['id'] as int;
         Map<String, dynamic> minimalRecipe = {
@@ -106,7 +118,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           'title': row['title'],
           'image': row['image'],
         };
-        // Se l'ID è gigante o negativo, l'ha creata l'utente
         if (rId > 1600000000 || rId < 0) {
           mine.add(minimalRecipe);
         } else {
@@ -115,9 +126,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
       myCreatedRecipes = mine;
       savedOfflineRecipes = saved;
-
-    } catch (e) {
-      print("Errore caricamento dati: $e");
+    } else {
+      isUserLogged = false;
     }
 
     if (mounted) {
@@ -125,15 +135,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  // 🟢 LOGOUT COMPLETO: Risolve il bug della sovrapposizione dati tra profili differenti
   Future<void> _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('logged_in_uid'); 
-    
+    await prefs.clear(); // Svuota completamente le SharedPreferences per eliminare residui del vecchio ID
+
+    setState(() {
+      isUserLogged = false;
+      nome = 'Ospite';
+      nickname = 'utente_guest';
+      peso = '';
+      altezza = '';
+      bio = '';
+      imagePath = '';
+      favoriteRecipes = [];
+      myCreatedRecipes = [];
+      savedOfflineRecipes = [];
+    });
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout effettuato!', style: GoogleFonts.montserrat()), backgroundColor: Colors.orangeAccent),
+        SnackBar(content: Text('Sessione chiusa correttamente!', style: GoogleFonts.montserrat()), backgroundColor: Colors.orangeAccent),
       );
-      Navigator.pop(context, true); 
+      Navigator.pop(context, true); // Comunica il cambio di stato al BaseLayout
     }
   }
 
@@ -147,6 +171,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  // 🟢 SALVATAGGIO FUNZIONANTE ED ALLINEATO: Corretto l'inserimento e l'aggiornamento simultaneo
   Future<void> _saveProfileToDb() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -157,40 +182,44 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final db = await DatabaseHelper.instance.database;
     int userId = int.parse(uid);
 
+    // 1. Aggiorna l'anagrafica principale (Nome e Nickname modificabile)
     await db.update(
       'users',
-      {'name': _nameController.text.trim()},
+      {
+        'name': _nameController.text.trim(),
+        'nickname': _nicknameController.text.trim(),
+      },
       where: 'id = ?',
       whereArgs: [userId],
     );
 
-    final check = await db.query('user_profiles', where: 'user_id = ?', whereArgs: [userId]);
-    
-    Map<String, dynamic> profileData = {
-      'user_id': userId,
-      'peso': double.tryParse(_pesoController.text) ?? 0.0,
-      'altezza': double.tryParse(_altezzaController.text) ?? 0.0,
-      'bio': _bioController.text.trim(),
-      'image_path': imagePath,
-    };
-
-    if (check.isEmpty) {
-      await db.insert('user_profiles', profileData);
-    } else {
-      await db.update('user_profiles', profileData, where: 'user_id = ?', whereArgs: [userId]);
-    }
+    // 2. Inserimento o sostituzione atomica delle informazioni fisiche e della biografia
+    await db.insert(
+      'user_profiles',
+      {
+        'user_id': userId,
+        'peso': double.tryParse(_pesoController.text) ?? 0.0,
+        'altezza': double.tryParse(_altezzaController.text) ?? 0.0,
+        'bio': _bioController.text.trim(),
+        'image_path': imagePath,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace, // Sostituisce se esistente, inserisce se nuovo
+    );
 
     setState(() {
       nome = _nameController.text.trim();
+      nickname = _nicknameController.text.trim();
       peso = _pesoController.text;
       altezza = _altezzaController.text;
       bio = _bioController.text.trim();
       isEditingProfile = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Profilo aggiornato!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Profilo salvato e sincronizzato!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+      );
+    }
   }
 
   @override
@@ -220,6 +249,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         title: Text("Il tuo Profilo", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
+          // 🟢 ELEMENTO COMPLETATO: Tasto che indirizza alla vista Statistiche (StatsScreen)
+          IconButton(
+            icon: const Icon(Icons.analytics_outlined, color: primaryGreen),
+            tooltip: "Vedi statistiche",
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StatsScreen())),
+          ),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
             tooltip: "Sconnetti account",
@@ -230,7 +265,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       body: Form(
         key: _formKey,
         child: ScrollConfiguration(
-          behavior: const ScrollBehavior().copyWith(overscroll: false), 
+          behavior: const ScrollBehavior().copyWith(overscroll: false), // 🟢 ELIMINATO EFFETTO SLIME
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -365,6 +400,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         children: [
           _buildTextFormField(_nameController, "Nome e Cognome", Icons.person, (v) => v == null || v.trim().isEmpty ? 'Inserisci il nome' : null),
           const SizedBox(height: 12),
+          // Field Nickname aggiunto e modificabile
+          _buildTextFormField(_nicknameController, "Nickname", Icons.alternate_email, (v) => v == null || v.trim().isEmpty ? 'Inserisci un nickname' : null),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(child: _buildTextFormField(_altezzaController, "Altezza (cm)", Icons.straighten, (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Errore' : null, isNum: true)),
@@ -436,7 +474,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             imgPath = imgPath.replaceAll('file://', ''); 
 
             Widget imageWidget;
-            // Usa cacheWidth per ridurre la RAM a una larghezza minuscola (i box sono larghi solo 140px)
             if (imgPath.startsWith('http')) {
               imageWidget = Image.network(
                 imgPath, fit: BoxFit.cover, cacheWidth: 200, 
