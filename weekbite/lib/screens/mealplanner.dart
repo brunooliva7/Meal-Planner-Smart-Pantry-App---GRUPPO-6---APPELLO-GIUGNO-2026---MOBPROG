@@ -175,27 +175,38 @@ class MealPlanScreenState extends State<MealPlanScreen> {
             ),
           ),
         ),
-        title: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _selectedPlannerName,
-            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: primaryGreen),
-            style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark),
-            dropdownColor: Colors.white,
-            items: _allPlannerNames.map((String name) {
-              return DropdownMenuItem<String>(
-                value: name,
-                child: Text(name),
-              );
-            }).toList(),
-            onChanged: (newName) {
-              if (newName != null) {
-                setState(() {
-                  _selectedPlannerName = newName;
-                  _loadPlannerData();
-                });
-              }
-            },
-          ),
+        // 🟢 EVITIAMO OVERFLOW NELL'APPBAR: Sfruttiamo una Row con Expanded per scalare dinamicamente il dropdown
+        title: Row(
+          children: [
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedPlannerName,
+                  isExpanded: true, // Occupa in sicurezza lo spazio orizzontale rimanente
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: primaryGreen),
+                  style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark),
+                  dropdownColor: Colors.white,
+                  items: _allPlannerNames.map((String name) {
+                    return DropdownMenuItem<String>(
+                      value: name,
+                      child: Text(
+                        name,
+                        overflow: TextOverflow.ellipsis, // Gestisce nomi planner lunghissimi troncandoli con i tre puntini
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (newName) {
+                    if (newName != null) {
+                      setState(() {
+                        _selectedPlannerName = newName;
+                        _loadPlannerData();
+                      });
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -287,7 +298,18 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                             child: ExpansionTile(
                               initiallyExpanded: true,
                               leading: Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
-                              title: Text(mealType, style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark)),
+                              // 🟢 PREVENZIONE OVERFLOW TITOLO PASTO: Avvolto in Row ed Expanded per nomi custom lunghi
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      mealType, 
+                                      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w800, color: kTextDark),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
@@ -384,4 +406,4 @@ class MealPlanScreenState extends State<MealPlanScreen> {
       ),
     );
   }
-}
+} 
