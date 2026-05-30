@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'recipe.dart'; 
 import 'modifyplanner.dart'; 
+import 'package:translator/translator.dart';
 import 'recipe_model.dart'; 
 import '../database/database_helper.dart'; 
 
@@ -15,10 +16,10 @@ const Color kBackgroundClear = Color(0xFFF9F9FB);
 class MealPlanScreen extends StatefulWidget {
   const MealPlanScreen({super.key});
   @override
-  State<MealPlanScreen> createState() => _MealPlanScreenState();
+  State<MealPlanScreen> createState() => MealPlanScreenState();
 }
 
-class _MealPlanScreenState extends State<MealPlanScreen> {
+class MealPlanScreenState extends State<MealPlanScreen> {
   final List<String> _days = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
   String _selectedDay = "Lunedì";
 
@@ -40,7 +41,12 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
     super.initState();
     _loadPlannerData();
   }
-
+  
+  // 🌟 METODO PUBBLICO richiamato da main.dart per aggiornare il dropdown quando si crea un nuovo planner
+  void forceReloadFromDb() {
+    _selectedPlannerName = null; // Forza il dropdown a ricalcolare partendo dall'ultimo inserito
+    _loadPlannerData();
+  }
   // 🟢 LOGICA DI CARICAMENTO DAL DATABASE SQLITE
   Future<void> _loadPlannerData() async {
     if (!mounted) return;
@@ -305,12 +311,34 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
                                           runSpacing: 8,
                                           children: listRecipes.map((recipe) {
                                             return InkWell(
-                                              onTap: () {
-                                
-                                                // Se l'ID è negativo (inserito a mano), passiamo solo title ed id in modo che 
-                                                // RecipeDetailScreen usi il title come chiave per l'API online di Spoonacular.
+                                              onTap: () async {
+                                                String searchTitle = recipe.title;
+
+                                                // 🌟 TRADUZIONE INTELLIGENTE PRIMA DI APRIRE L'API DI SPOONACULAR
+                                                if (recipe.id < 0) {
+                                                  // Mostriamo un piccolo indicatore di caricamento sopra l'app per far capire che sta traducendo
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text("Conversione e ricerca della ricetta affine per '$searchTitle'...", style: GoogleFonts.montserrat()),
+                                                      duration: const Duration(milliseconds: 800),
+                                                      backgroundColor: primaryGreen,
+                                                    ),
+                                                  );
+
+                                                  try {
+                                                    final translator = GoogleTranslator();
+                                                    // Converte l'italiano inserito a mano in Inglese per Spoonacular
+                                                    var translation = await translator.translate(recipe.title, from: 'auto', to: 'en');
+                                                    searchTitle = translation.text;
+                                                  } catch (e) {
+                                                    print("Errore pre-traduzione query: $e");
+                                                  }
+                                                }
+
+                                                if (!mounted) return;
+
                                                 final Map<String, dynamic> passedData = recipe.id < 0 
-                                                  ? { 'id': recipe.id, 'title': recipe.title, 'image': '' }
+                                                  ? { 'id': recipe.id, 'title': searchTitle, 'image': '' }
                                                   : recipe.toMap();
 
                                                 Navigator.push(

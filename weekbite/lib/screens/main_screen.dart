@@ -32,7 +32,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _refreshAllData() async {
+    // 🟢 Carichiamo SEMPRE le ricette virali del giorno (Visibili a tutti)
     await _loadViralRecipes();
+    
+    // 🟢 Carichiamo i dati personali SOLO se l'utente è loggato
     if (widget.isLogged) {
       await _loadUserFavorites();
       await _loadPantryBasedRecipes();
@@ -55,13 +58,12 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 🟢 NUOVA LOGICA DISPENSA: Traduzione + Cache Giornaliera
   Future<void> _loadPantryBasedRecipes() async {
     setState(() => isLoadingPantry = true);
     String todayStr = DateTime.now().toString().split(' ')[0];
 
     try {
-      // 1. VERIFICA CACHE LOCALE (Scaricata una volta al giorno)
+      // 1. VERIFICA CACHE LOCALE 
       List<dynamic> cachedPantry = await DatabaseHelper.instance.getPantryCache(todayStr);
 
       if (cachedPantry.isNotEmpty) {
@@ -71,21 +73,17 @@ class _MainScreenState extends State<MainScreen> {
             isLoadingPantry = false;
           });
         }
-        return; // Esce: dati presi dal database locale, zero chiamate API!
+        return;
       }
 
-      // 2. RECUPERO INGREDIENTI DALLA DISPENSA
-      // Assumiamo che tu abbia/creerai un metodo getDispensaIngredients() nel DB
-      List<String> myIngredientsItalian = [];
-      try {
-        // myIngredientsItalian = await DatabaseHelper.instance.getDispensaIngredients();
-        if(myIngredientsItalian.isEmpty) myIngredientsItalian = ['pomodoro', 'pasta', 'basilico']; // Dati finti di sicurezza
-      } catch (e) {
-        myIngredientsItalian = ['pomodoro', 'pasta', 'basilico']; 
-      }
+      // 2. RECUPERO INGREDIENTI DALLA DISPENSA REALE
+      List<String> myIngredientsItalian = []; 
+      
+      // 🚧 IN ATTESA DEL COMPAGNO:
+      // myIngredientsItalian = await DatabaseHelper.instance.getDispensaIngredients();
 
       if (myIngredientsItalian.isEmpty) {
-        setState(() => isLoadingPantry = false);
+        if (mounted) setState(() => isLoadingPantry = false);
         return;
       }
 
@@ -108,11 +106,18 @@ class _MainScreenState extends State<MainScreen> {
         
         // 5. TRADUZIONE RISULTATI (EN -> IT)
         for (var recipe in data) {
-          var translation = await translator.translate(recipe['title'] ?? '', from: 'en', to: 'it');
-          recipe['title'] = translation.text;
+          String originalTitle = recipe['title'] ?? '';
+          if (originalTitle.isNotEmpty) {
+            try {
+              var translation = await translator.translate(originalTitle, from: 'en', to: 'it');
+              recipe['title'] = translation.text;
+            } catch (e) {
+              print("Errore traduzione titolo: $e");
+            }
+          }
         }
 
-        // 6. SALVATAGGIO IN CACHE PER IL RESTO DELLA GIORNATA
+        // 6. SALVATAGGIO IN CACHE
         await DatabaseHelper.instance.savePantryCache(data, todayStr);
 
         if (mounted) {
@@ -156,8 +161,15 @@ class _MainScreenState extends State<MainScreen> {
         
         final translator = GoogleTranslator();
         for (var r in fetched) {
-          var trans = await translator.translate(r['title'], from: 'en', to: 'it');
-          r['title'] = trans.text;
+          String originalTitle = r['title'] ?? '';
+          if (originalTitle.isNotEmpty) {
+            try {
+              var trans = await translator.translate(originalTitle, from: 'en', to: 'it');
+              r['title'] = trans.text;
+            } catch (e) {
+              print("Errore traduzione Virali: $e");
+            }
+          }
         }
 
         await DatabaseHelper.instance.saveViralCache(fetched, date);
@@ -182,27 +194,36 @@ class _MainScreenState extends State<MainScreen> {
               child: RefreshIndicator(
                 onRefresh: _refreshAllData,
                 color: theme.colorScheme.primary,
-                child: CustomScrollView(
-                  slivers: [
-                    if (widget.isLogged) ...[
-                      _buildSectionHeader("I tuoi Preferiti", theme),
-                      SliverToBoxAdapter(
-                        child: isLoadingFavorites 
-                          ? const Center(child: CircularProgressIndicator()) 
-                          : _buildHorizontalList(favoriteRecipes, false),
-                      ),
+                // 🟢 1. RIMOZIONE EFFETTO SLIME DALLA PAGINA PRINCIPALE
+                child: ScrollConfiguration(
+                  behavior: const ScrollBehavior().copyWith(overscroll: false),
+                  child: CustomScrollView(
+                    // Manteniamo 'AlwaysScrollable' così il pull-to-refresh funziona sempre!
+                    physics: const AlwaysScrollableScrollPhysics(), 
+                    slivers: [
+                      
+                      // 🌍 SEZIONI PERSONALI: Compaiono solo se loggato
+                      if (widget.isLogged) ...[
+                        _buildSectionHeader("I tuoi Preferiti", theme),
+                        SliverToBoxAdapter(
+                          child: isLoadingFavorites 
+                            ? const Center(child: CircularProgressIndicator()) 
+                            : _buildHorizontalList(favoriteRecipes, false),
+                        ),
 
-                      _buildSectionHeader("In base alla tua Dispensa", theme),
-                      SliverToBoxAdapter(
-                        child: isLoadingPantry 
-                          ? const Center(child: CircularProgressIndicator()) 
-                          : _buildHorizontalList(pantryRecipes, true),
-                      ),
+                        _buildSectionHeader("In base alla tua Dispensa", theme),
+                        SliverToBoxAdapter(
+                          child: isLoadingPantry 
+                            ? const Center(child: CircularProgressIndicator()) 
+                            : _buildHorizontalList(pantryRecipes, true),
+                        ),
+                      ],
+
+                      // 🌍 GRIGLIA VIRALE: Visibile a tutti
+                      _buildSectionHeader("Esplora Ricette Virali", theme, isLarge: true),
+                      _buildApiSliverGrid(theme),
                     ],
-
-                    _buildSectionHeader("Esplora Ricette Virali", theme, isLarge: true),
-                    _buildApiSliverGrid(theme),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -262,58 +283,51 @@ class _MainScreenState extends State<MainScreen> {
 
     return SizedBox(
       height: 170,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: list.length,
-        itemBuilder: (context, index) {
-          final recipe = list[index];
-          String imageUrl = recipe['image'] ?? '';
-
-          Widget imageWidget;
-          if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
-            imageWidget = Image.network(
-              imageUrl,
-              height: 100,
+      // 🟢 2. RIMOZIONE EFFETTO SLIME DALLE LISTE ORIZZONTALI
+      child: ScrollConfiguration(
+        behavior: const ScrollBehavior().copyWith(overscroll: false),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(), // Si blocca di netto senza rimbalzare
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemCount: list.length,
+          itemBuilder: (context, index) {
+            final recipe = list[index];
+            return Container(
               width: 150,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                height: 100, width: 150, color: Colors.grey[200],
-                child: const Icon(Icons.restaurant_menu, color: Colors.grey, size: 40),
+              margin: const EdgeInsets.only(right: 12),
+              child: InkWell(
+                onTap: () => Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.network(
+                        recipe['image'] ?? 'https://via.placeholder.com/150',
+                        height: 100,
+                        width: 150,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          height: 100, width: 150, color: Colors.grey[200],
+                          child: const Icon(Icons.broken_image, color: Colors.grey, size: 30),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      recipe['title'] ?? 'Senza titolo',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             );
-          } else {
-            imageWidget = Container(
-              height: 100, width: 150, color: Colors.grey[200],
-              child: const Icon(Icons.restaurant_menu, color: Colors.grey, size: 40),
-            );
-          }
-
-          return Container(
-            width: 150,
-            margin: const EdgeInsets.only(right: 12),
-            child: InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi))),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
-                    child: imageWidget, 
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    recipe['title'] ?? 'Senza titolo',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.montserrat(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -330,25 +344,6 @@ class _MainScreenState extends State<MainScreen> {
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final recipe = viralRecipes[index];
-            String imageUrl = recipe['image'] ?? '';
-
-            Widget imageWidget;
-            if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
-              imageWidget = Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey[200],
-                  child: const Center(child: Icon(Icons.restaurant_menu, color: Colors.grey, size: 50)),
-                ),
-              );
-            } else {
-              imageWidget = Container(
-                color: Colors.grey[200],
-                child: const Center(child: Icon(Icons.restaurant_menu, color: Colors.grey, size: 50)),
-              );
-            }
-
             return InkWell(
               onTap: () => Navigator.push(context, MaterialPageRoute(
                 builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: true))),
@@ -358,7 +353,14 @@ class _MainScreenState extends State<MainScreen> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15),
-                      child: imageWidget, 
+                      child: Image.network(
+                        recipe['image'] ?? 'https://via.placeholder.com/150',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(child: Icon(Icons.broken_image, size: 40, color: Colors.grey)),
+                        ),
+                      ),
                     ),
                   ),
                   Padding(
