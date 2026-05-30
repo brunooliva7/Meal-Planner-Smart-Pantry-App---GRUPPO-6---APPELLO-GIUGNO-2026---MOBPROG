@@ -32,8 +32,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool isFavorite = false;
   bool isEditing = false; 
   
-  late int servings;
-  late int originalServings;
+  late int servings = 2;
+  late int originalServings = 2;
   bool isLocalLoading = false; 
   bool isTranslating = false;
   
