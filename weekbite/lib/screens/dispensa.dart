@@ -112,8 +112,15 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       );
                       if (risultato != null && risultato is Ingredienti) {
                         final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('dispensa', risultato);
+                        
                         setState(() {
-                          dispensa.add(ingredienteSalvato);
+                          int index = dispensa.indexWhere((item) => item.id == ingredienteSalvato.id);
+                          
+                          if (index != -1) {
+                            dispensa[index] = ingredienteSalvato;
+                          } else {
+                            dispensa.add(ingredienteSalvato);
+                          }
                         });
                       }
                     },
