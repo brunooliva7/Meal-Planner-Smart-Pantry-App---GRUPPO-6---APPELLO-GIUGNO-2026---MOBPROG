@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'package:translator/translator.dart'; 
-import '../database/database_helper.dart'; 
+import '../database/database_helper.dart';
+import 'dart:io';  
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -291,13 +292,37 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                   ),
                 ),
               ],
-              flexibleSpace: FlexibleSpaceBar(
-                background: Image.network(
-                  widget.recipeData['image'] ?? 'https://via.placeholder.com/400x300',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image, size: 50, color: unselectedIconColor))),
-                ),
+             flexibleSpace: FlexibleSpaceBar(
+              background: Builder(
+                builder: (context) {
+                  String imgPath = widget.recipeData['image'] ?? '';
+                  
+                  Widget imageWidget;
+                  // Se inizia con http, è di Spoonacular (internet)
+                  if (imgPath.startsWith('http')) {
+                    imageWidget = Image.network(
+                      imgPath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image, size: 50, color: unselectedIconColor))),
+                    );
+                  } 
+                  // Se inizia con / o c:, è un percorso locale (creata da te)
+                  else if (imgPath.isNotEmpty) {// Assicurati di aggiungere import 'dart:io'; in cima al file recipe.dart
+                    imageWidget = Image.file(
+                      File(imgPath),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image, size: 50, color: unselectedIconColor))),
+                    );
+                  } 
+                  // Fallback se non c'è nessuna immagine
+                  else {
+                    imageWidget = Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.restaurant, size: 50, color: unselectedIconColor)));
+                  }
+
+                  return imageWidget;
+                },
               ),
+            ),
             ),
 
             SliverToBoxAdapter(
