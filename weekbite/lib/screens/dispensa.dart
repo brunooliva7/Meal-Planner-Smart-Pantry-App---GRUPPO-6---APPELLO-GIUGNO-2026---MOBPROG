@@ -25,7 +25,6 @@ class DispensaScreen extends StatefulWidget{
 
 List<Ingredienti> dispensa = [];
 
-
 class _DispensaScreenState extends State<DispensaScreen>{
   @override
   void initState() {
@@ -246,6 +245,13 @@ class IngredientiCard extends StatelessWidget {
     final Color coloreData = scadeAbreve ? Colors.red : Colors.grey[600]!;
     final FontWeight pesoData = scadeAbreve ? FontWeight.bold : FontWeight.normal;
 
+    String infoTesto = "";
+    if(ingrediente.unitaMisura =='pz' || ingrediente.unitaMisura == 'q.b.'){
+      infoTesto = "${ingrediente.pezzi} pz • ${ingrediente.categoria} • ";
+    }else{
+      infoTesto = "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • ";
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -278,10 +284,10 @@ class IngredientiCard extends StatelessWidget {
                       TextSpan(
                         style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13),
                         children: [
-                          TextSpan(text: "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • "),
+                          TextSpan(text: infoTesto),
                           TextSpan(
                             text: "${ingrediente.dataScadenza.day.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.month.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.year}",
-                            style: TextStyle(color: coloreData, fontWeight: pesoData), // 🔴 Diventa rosso se <= 3 giorni
+                            style: TextStyle(color: coloreData, fontWeight: pesoData),
                           ),
                         ],
                       ),
@@ -512,14 +518,19 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                 controller: _nomeController,
                 decoration: const InputDecoration(labelText: "Nome ingrediente", border: OutlineInputBorder(),),
               ),
-              const SizedBox(height: 20),
               
+              const SizedBox(height: 20),
               // FORM QUANTITÀ
-              TextField(
-                controller: _quantitaController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: "Quantità (es. 500)",border: OutlineInputBorder(),),
+            if (_unitaSelezionata != 'pz' && _unitaSelezionata != 'q.b.')
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: TextFormField(
+                  controller: _quantitaController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: "Quantità (es. 500)",border: OutlineInputBorder(),),
+                ),
               ),
+
               const SizedBox(height: 20),
 
               // FORM UNITÀ DI MISURA
@@ -542,6 +553,9 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
                   setState(() {
                     if (nuovoValore != null) {
                       _unitaSelezionata = nuovoValore;
+                      if (_unitaSelezionata == 'pz' || _unitaSelezionata == 'q.b.') {
+                        _quantitaController.text = '0'; // Usa il nome del tuo controller
+                      }
                     }
                   });
                 },

@@ -9,7 +9,7 @@ class NotificationService {
   static Future<void> init() async {
     tzData.initializeTimeZones();
     
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@drawable/icona_notifica');
     const InitializationSettings initSettings = InitializationSettings(android: androidSettings);
     
     await _notificationsPlugin.initialize(initSettings);
@@ -43,6 +43,23 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+  // 🟢 AGGIUNGI QUESTA FUNZIONE PER IL TEST
+  static Future<void> mostraNotificaDiTest() async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'test_channel',
+      'Test Notifiche',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails dettagli = NotificationDetails(android: androidDetails);
+
+    await _notificationsPlugin.show(
+      999, // ID fittizio
+      '🚀 Test Notifica!',
+      'Se stai leggendo questo messaggio, il motore delle notifiche funziona alla grande!',
+      dettagli,
     );
   }
 

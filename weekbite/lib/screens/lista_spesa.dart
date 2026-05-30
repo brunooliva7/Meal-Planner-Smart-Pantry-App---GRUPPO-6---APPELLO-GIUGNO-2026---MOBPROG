@@ -4,6 +4,7 @@ import 'package:weekbite/screens/ingredienti_model.dart';
 import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/dispensa.dart'; 
 import 'package:flutter/material.dart';
+import 'package:weekbite/services/notification_service.dart'; 
 
 final Map<String, String> categoriaM = {
   'Pasta': '🍝',
@@ -42,6 +43,21 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
   @override
   Widget build(BuildContext context){
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        elevation: 0,
+        title: Text("Test Notifiche"),
+        
+        // 🟢 AGGIUNGI QUESTO BOTTONE DOVE PREFERISCI PER FARE IL TEST
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_active, color: Colors.orange, size: 28),
+            onPressed: () async {
+              await NotificationService.mostraNotificaDiTest();
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
