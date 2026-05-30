@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'package:translator/translator.dart'; 
-import '../database/database_helper.dart';
-import 'dart:io';  
+import '../database/database_helper.dart'; 
+import 'dart:io';
+import 'dart:convert'; // 🟢 Aggiunto per decodificare il JSON dell'API
+import 'package:http/http.dart' as http; // 🟢 Aggiunto per fare la chiamata di matching
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -34,6 +36,10 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   late int originalServings;
   bool isLocalLoading = false; 
   bool isTranslating = false;
+  
+  // 🟢 VARIABILI PER IL MATCHING
+  bool _isMatching = false;
+  late Map<String, dynamic> _dynamicRecipeData; 
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _summaryController = TextEditingController(); 
@@ -44,12 +50,63 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _dynamicRecipeData = Map<String, dynamic>.from(widget.recipeData); // Inizializza con i dati passati
     _initRecipeState();
   }
 
+  // 🟢 FUNZIONE DI MATCHING CON SPOONACULAR
+  Future<bool> _fetchMatchingRecipe(String query) async {
+    const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
+    try {
+      // 1. Cerca l'ID della ricetta più somigliante (Complex Search)
+      final searchUrl = 'https://api.spoonacular.com/recipes/complexSearch?query=$query&number=1&apiKey=$apiKey';
+      final searchRes = await http.get(Uri.parse(searchUrl));
+      
+      if (searchRes.statusCode == 200) {
+        final searchData = json.decode(searchRes.body);
+        if (searchData['results'] != null && searchData['results'].isNotEmpty) {
+          int matchedId = searchData['results'][0]['id'];
+          
+          // 2. Scarica i dettagli completi della ricetta trovata
+          final infoUrl = 'https://api.spoonacular.com/recipes/$matchedId/information?apiKey=$apiKey';
+          final infoRes = await http.get(Uri.parse(infoUrl));
+          
+          if (infoRes.statusCode == 200) {
+            final infoData = json.decode(infoRes.body);
+            _dynamicRecipeData = infoData; // Sostituisce i dati vuoti con quelli veri trovati
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      print("Errore durante il matching API: $e");
+    }
+    return false;
+  }
+
   Future<void> _initRecipeState() async {
-    int recipeId = widget.recipeData['id'] ?? 0;
-    
+    int recipeId = _dynamicRecipeData['id'] ?? 0;
+
+    // 🟢 CONTROLLO MATCHING: Se arriva dal Meal Planner ed è una ricetta scritta a mano (ID negativo)
+    if (widget.isFromApi && recipeId < 0) {
+      setState(() => _isMatching = true); // Mostra la schermata di ricerca
+      
+      // Usa il titolo tradotto dal meal planner per cercare la ricetta in inglese
+      bool matchSuccess = await _fetchMatchingRecipe(_dynamicRecipeData['title']);
+      
+      if (matchSuccess) {
+        recipeId = _dynamicRecipeData['id']; // Aggiorniamo con il VERO ID trovato dall'API
+        
+        // Ripristiniamo il titolo originale italiano inserito dall'utente nel planner!
+        if (widget.recipeData['originalTitleIt'] != null) {
+          _dynamicRecipeData['title'] = widget.recipeData['originalTitleIt'];
+        }
+      }
+      
+      setState(() => _isMatching = false); // Fine ricerca
+    }
+
+    // --- CONTROLLI STANDARD ---
     final prefs = await SharedPreferences.getInstance();
     final String? uid = prefs.getString('logged_in_uid');
     bool checkLogged = uid != null && uid.isNotEmpty;
@@ -67,19 +124,19 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       isFavorite = favStatus;
       isDownloaded = downloadStatus;
       
-      servings = localData?['servings'] ?? widget.recipeData['servings'] ?? 2;
-      originalServings = widget.recipeData['servings'] ?? servings;
+      servings = localData?['servings'] ?? _dynamicRecipeData['servings'] ?? 2;
+      originalServings = _dynamicRecipeData['servings'] ?? servings;
       if (originalServings <= 0) originalServings = 2;
 
-      ingredients = localData?['extendedIngredients'] ?? widget.recipeData['extendedIngredients'] ?? widget.recipeData['ingredients'] ?? [];
+      ingredients = localData?['extendedIngredients'] ?? _dynamicRecipeData['extendedIngredients'] ?? _dynamicRecipeData['ingredients'] ?? [];
       
-      _titleController.text = localData?['title'] ?? widget.recipeData['title'] ?? 'Senza Titolo';
-      _notesController.text = localData?['personalNotes'] ?? widget.recipeData['personalNotes'] ?? "";
+      _titleController.text = localData?['title'] ?? _dynamicRecipeData['title'] ?? 'Senza Titolo';
+      _notesController.text = localData?['personalNotes'] ?? _dynamicRecipeData['personalNotes'] ?? "";
       
-      String rawSummary = localData?['summary'] ?? widget.recipeData['summary'] ?? "Nessuna descrizione disponibile per questo piatto.";
+      String rawSummary = localData?['summary'] ?? _dynamicRecipeData['summary'] ?? "Nessuna descrizione disponibile per questo piatto.";
       _summaryController.text = _cleanHtml(rawSummary);
 
-      String rawInstructions = localData?['instructions'] ?? widget.recipeData['instructions'] ?? "Nessuna istruzione fornita per questa ricetta.";
+      String rawInstructions = localData?['instructions'] ?? _dynamicRecipeData['instructions'] ?? "Nessuna istruzione fornita per questa ricetta.";
       _instructionsController.text = _cleanHtml(rawInstructions);
     });
 
@@ -101,13 +158,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       var tTitle = await translator.translate(_titleController.text, from: 'en', to: 'it');
       _titleController.text = tTitle.text;
 
-      String rawSummary = widget.recipeData['summary'] ?? '';
+      String rawSummary = _dynamicRecipeData['summary'] ?? '';
       if (rawSummary.isNotEmpty) {
         var tSummary = await translator.translate(_cleanHtml(rawSummary), from: 'en', to: 'it');
         _summaryController.text = tSummary.text;
       }
 
-      String rawInst = widget.recipeData['instructions'] ?? '';
+      String rawInst = _dynamicRecipeData['instructions'] ?? '';
       if (rawInst.isNotEmpty) {
         var tInst = await translator.translate(_cleanHtml(rawInst), from: 'en', to: 'it');
         _instructionsController.text = tInst.text;
@@ -198,7 +255,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   Future<void> _downloadRecipeAction() async {
     setState(() => isLocalLoading = true);
     
-    Map<String, dynamic> currentData = Map<String, dynamic>.from(widget.recipeData);
+    Map<String, dynamic> currentData = Map<String, dynamic>.from(_dynamicRecipeData);
     currentData['title'] = _titleController.text;
     currentData['summary'] = _summaryController.text;
     currentData['instructions'] = _instructionsController.text;
@@ -221,9 +278,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Future<void> _saveModifications() async {
-    int recipeId = widget.recipeData['id'] ?? 0;
+    int recipeId = _dynamicRecipeData['id'] ?? 0;
     
-    Map<String, dynamic> updatedData = Map<String, dynamic>.from(widget.recipeData);
+    Map<String, dynamic> updatedData = Map<String, dynamic>.from(_dynamicRecipeData);
     updatedData['title'] = _titleController.text;
     updatedData['summary'] = _summaryController.text; 
     updatedData['instructions'] = _instructionsController.text;
@@ -244,15 +301,35 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int recipeId = widget.recipeData['id'] ?? 0;
+    // 🟢 SCHERMATA DI CARICAMENTO DURANTE IL MATCHING
+    if (_isMatching) {
+      return Scaffold(
+        backgroundColor: backgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: primaryGreen),
+              const SizedBox(height: 24),
+              Text(
+                "Cerco la ricetta perfetta\nper il tuo menu...", 
+                textAlign: TextAlign.center,
+                style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold, fontSize: 18)
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    int recipeId = _dynamicRecipeData['id'] ?? 0;
 
     return Scaffold(
       backgroundColor: backgroundColor, 
-      // 🟢 AGGIUNTA LA SCROLL CONFIGURATION PER DISATTIVARE L'OVERSCROLL (EFFETTO SLIME)
       body: ScrollConfiguration(
         behavior: const ScrollBehavior().copyWith(overscroll: false),
         child: CustomScrollView(
-          physics: const ClampingScrollPhysics(), // Si ferma di netto senza "rimbalzi" o deformazioni
+          physics: const ClampingScrollPhysics(), 
           slivers: [
             SliverAppBar(
               expandedHeight: 280,
@@ -283,7 +360,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           if (isFavorite) {
                             await DatabaseHelper.instance.removeFavorite(recipeId);
                           } else {
-                            await DatabaseHelper.instance.addFavorite(recipeId, _titleController.text, widget.recipeData['image'] ?? '');
+                            await DatabaseHelper.instance.addFavorite(recipeId, _titleController.text, _dynamicRecipeData['image'] ?? '');
                           }
                           setState(() => isFavorite = !isFavorite);
                         }
@@ -295,27 +372,22 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
              flexibleSpace: FlexibleSpaceBar(
               background: Builder(
                 builder: (context) {
-                  String imgPath = widget.recipeData['image'] ?? '';
+                  String imgPath = _dynamicRecipeData['image'] ?? '';
                   
                   Widget imageWidget;
-                  // Se inizia con http, è di Spoonacular (internet)
                   if (imgPath.startsWith('http')) {
                     imageWidget = Image.network(
                       imgPath,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image, size: 50, color: unselectedIconColor))),
                     );
-                  } 
-                  // Se inizia con / o c:, è un percorso locale (creata da te)
-                  else if (imgPath.isNotEmpty) {// Assicurati di aggiungere import 'dart:io'; in cima al file recipe.dart
+                  } else if (imgPath.isNotEmpty) {
                     imageWidget = Image.file(
                       File(imgPath),
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.broken_image, size: 50, color: unselectedIconColor))),
                     );
-                  } 
-                  // Fallback se non c'è nessuna immagine
-                  else {
+                  } else {
                     imageWidget = Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.restaurant, size: 50, color: unselectedIconColor)));
                   }
 
@@ -352,7 +424,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       children: [
                         const Icon(Icons.access_time, color: primaryGreen, size: 20),
                         const SizedBox(width: 6),
-                        Text("${widget.recipeData['readyInMinutes'] ?? 30} min", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+                        Text("${_dynamicRecipeData['readyInMinutes'] ?? 30} min", style: GoogleFonts.montserrat(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
                         const SizedBox(width: 24),
                         Icon(isDownloaded ? Icons.cloud_done : Icons.cloud_download_outlined, color: isDownloaded ? primaryGreen : unselectedIconColor, size: 20),
                         const SizedBox(width: 6),

@@ -473,6 +473,19 @@ class DatabaseHelper {
   }
 
   // ==========================================================
+  // 🍳 RECUPERO INGREDIENTI PER L'API SPOONACULAR
+  // ==========================================================
+  // Restituisce solo una lista di nomi testuali dalla dispensa
+  Future<List<String>> getDispensaIngredients() async {
+    final db = await instance.database;
+    // Peschiamo solo la colonna "nome" dalla tabella "dispensa"
+    final res = await db.query('dispensa', columns: ['nome']);
+    
+    // Trasformiamo il risultato del database in una semplice lista di parole
+    return res.map((row) => row['nome'] as String).toList();
+  }
+
+  // ==========================================================
   // CHIUSURA DATABASE
   // ==========================================================
   Future close() async {
