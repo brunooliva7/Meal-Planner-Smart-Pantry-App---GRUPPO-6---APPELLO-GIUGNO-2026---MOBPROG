@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart'; 
 import 'stats_screen.dart';
 import 'recipe.dart'; 
-import 'package:sqflite/sqflite.dart'; // Richiesto per ConflictAlgorithm
-import '../services/database_helper.dart';
+import 'package:sqflite/sqflite.dart'; 
+import '../services/database_helper.dart'; // Assicurati che il path sia giusto (../services/ o ../database/)
 import 'package:google_sign_in/google_sign_in.dart';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
@@ -15,14 +15,16 @@ const Color backgroundColor = Colors.white;
 const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
 
 class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key});
+  
+  final VoidCallback? onLogout;
+
+  const UserProfileScreen({super.key, this.onLogout});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  // 🟢 PATTERN INPUT: Chiave globale per la validazione sicura del modulo di modifica
   final _formKey = GlobalKey<FormState>();
 
   bool isUserLogged = false; 
@@ -40,7 +42,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   List<dynamic> myCreatedRecipes = [];
   List<dynamic> savedOfflineRecipes = [];
 
-  // Controller dedicati all'input di testo
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _pesoController = TextEditingController();
@@ -50,12 +51,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfileAndData();
+    // 🟢 FIX 1: Lascia che la pagina si disegni prima fluidamente, POI carica i dati
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProfileAndData();
+    });
   }
 
   @override
   void dispose() {
-    // 🟢 PATTERN INPUT: Rilascio obbligatorio per prevenire Memory Leaks (Slide 04-input-in-ui)
     _nameController.dispose();
     _nicknameController.dispose();
     _pesoController.dispose();
@@ -71,44 +74,54 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final String? uid = prefs.getString('logged_in_uid');
 
-    if (uid != null && uid.isNotEmpty) {
+    // 🟢 FIX: Blocchiamo anche la stringa testuale 'null'
+    if (uid != null && uid.isNotEmpty && uid != 'null') {
       isUserLogged = true;
       final db = await DatabaseHelper.instance.database;
-      final int userId = int.parse(uid);
-
-      // Caricamento asincrono leggero per evitare rallentamenti all'interfaccia
-      final List<Map<String, dynamic>> userQuery = await db.query(
-        'users', where: 'id = ?', whereArgs: [userId],
-      );
-
-      if (userQuery.isNotEmpty) {
-        nome = userQuery.first['name'] ?? 'Utente Registrato';
-        nickname = userQuery.first['nickname'] ?? userQuery.first['email']?.split('@')[0] ?? 'utente';
+      
+      // 🟢 FIX: tryParse tenta di convertire, ma se fallisce non fa crashare l'app
+      final int? userId = int.tryParse(uid);
+      
+      if (userId == null) {
+        // Se c'è sporcizia in memoria, chiudiamo la sessione corrotta
+        if (mounted) setState(() { isUserLogged = false; isLoading = false; });
+        return;
       }
 
-      final List<Map<String, dynamic>> profileQuery = await db.query(
-        'user_profiles', where: 'user_id = ?', whereArgs: [userId],
-      );
+      // 🟢 FIX 2: CHIAMATE PARALLELE! 
+      final results = await Future.wait([
+        db.query('users', where: 'id = ?', whereArgs: [userId]),
+        db.query('user_profiles', where: 'user_id = ?', whereArgs: [userId]),
+        db.query('favorites'), 
+        db.query('saved_recipes', columns: ['id', 'title', 'image']) 
+      ]);
+
+      final userQuery = results[0];
+      final profileQuery = results[1];
+      final favQuery = results[2];
+      final savedQuery = results[3];
+
+      if (userQuery.isNotEmpty) {
+        nome = userQuery.first['name']?.toString() ?? 'Utente Registrato';
+        nickname = userQuery.first['nickname']?.toString() ?? userQuery.first['email']?.toString().split('@')[0] ?? 'utente';
+      }
 
       if (profileQuery.isNotEmpty) {
         final data = profileQuery.first;
         peso = data['peso']?.toString() ?? '';
         altezza = data['altezza']?.toString() ?? '';
-        bio = data['bio'] ?? '';
-        imagePath = data['image_path'] ?? '';
+        bio = data['bio']?.toString() ?? '';
+        imagePath = data['image_path']?.toString() ?? '';
       }
 
-      // Sincronizzazione dei campi del modulo
       _nameController.text = nome;
       _nicknameController.text = nickname;
       _pesoController.text = peso;
       _altezzaController.text = altezza;
       _bioController.text = bio;
 
-      // Recupero liste sincronizzate dal DB
-      favoriteRecipes = await DatabaseHelper.instance.getAllFavorites();
+      favoriteRecipes = favQuery.toList();
 
-      final List<Map<String, dynamic>> savedQuery = await db.query('saved_recipes', columns: ['id', 'title', 'image']);
       List<dynamic> mine = [];
       List<dynamic> saved = [];
 
@@ -136,27 +149,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  // 🟢 LOGOUT COMPLETO: Risolve il bug della sovrapposizione dati tra profili differenti
- // 🟢 LOGOUT COMPLETO ED ANTICORRUZIONE DATI
-  Future<void> _handleLogout() async {
+ // 🟢 LOGOUT SINCRONIZZATO CON LA HOME
+ Future<void> _handleLogout() async {
     try {
-      // 1. Svuota completamente la memoria fissa del telefono
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear(); 
 
-      // 2. Forza la disconnessione dal motore interno di Google Sign-In
-      // Questo impedirà l'accesso automatico silenzioso con il vecchio account!
       final GoogleSignIn googleSignIn = GoogleSignIn();
       if (await googleSignIn.isSignedIn()) {
         await googleSignIn.signOut();
-        await googleSignIn.disconnect(); // Rimuove l'accoppiamento temporaneo sul telefono
+        await googleSignIn.disconnect(); 
       }
     } catch (e) {
       print("Errore durante la disconnessione Google nativa: $e");
     }
 
-    // 3. Ripristina completamente lo stato grafico locale ai valori di default (Guest)
     if (mounted) {
+      // 🟢 1. AVVISA LA HOME CHE L'UTENTE È USCITO
+      widget.onLogout?.call();
+
+      // 🟢 2. AZZERA LA SCHERMATA GRAFICA
       setState(() {
         isUserLogged = false;
         nome = 'Ospite';
@@ -176,9 +188,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           backgroundColor: Colors.orangeAccent
         ),
       );
-      
-      // Ritorniamo true al main.dart per forzare la ricostruzione dei widget della Home
-      Navigator.pop(context, true); 
     }
   }
 
@@ -192,7 +201,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  // 🟢 SALVATAGGIO FUNZIONANTE ED ALLINEATO: Corretto l'inserimento e l'aggiornamento simultaneo
   Future<void> _saveProfileToDb() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -203,7 +211,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final db = await DatabaseHelper.instance.database;
     int userId = int.parse(uid);
 
-    // 1. Aggiorna l'anagrafica principale (Nome e Nickname modificabile)
     await db.update(
       'users',
       {
@@ -214,7 +221,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       whereArgs: [userId],
     );
 
-    // 2. Inserimento o sostituzione atomica delle informazioni fisiche e della biografia
     await db.insert(
       'user_profiles',
       {
@@ -224,7 +230,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         'bio': _bioController.text.trim(),
         'image_path': imagePath,
       },
-      conflictAlgorithm: ConflictAlgorithm.replace, // Sostituisce se esistente, inserisce se nuovo
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
     setState(() {
@@ -270,7 +276,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         title: Text("Il tuo Profilo", style: GoogleFonts.montserrat(color: primaryGreen, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
-          // 🟢 ELEMENTO COMPLETATO: Tasto che indirizza alla vista Statistiche (StatsScreen)
           IconButton(
             icon: const Icon(Icons.analytics_outlined, color: primaryGreen),
             tooltip: "Vedi statistiche",
@@ -286,7 +291,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       body: Form(
         key: _formKey,
         child: ScrollConfiguration(
-          behavior: const ScrollBehavior().copyWith(overscroll: false), // 🟢 ELIMINATO EFFETTO SLIME
+          behavior: const ScrollBehavior().copyWith(overscroll: false),
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -329,7 +334,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 CircleAvatar(
                   radius: 55,
                   backgroundColor: Colors.grey[200],
-                  backgroundImage: imagePath.isNotEmpty ? FileImage(File(imagePath)) : null,
+                  // 🟢 FIX 3: Rimpiccioliamo a 300 pixel l'immagine scattata con la fotocamera! Salva un sacco di RAM.
+                  backgroundImage: imagePath.isNotEmpty ? ResizeImage(FileImage(File(imagePath)), width: 300) : null,
                   child: imagePath.isEmpty ? const Icon(Icons.person, size: 55, color: unselectedIconColor) : null,
                 ),
                 Positioned(
@@ -421,7 +427,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         children: [
           _buildTextFormField(_nameController, "Nome e Cognome", Icons.person, (v) => v == null || v.trim().isEmpty ? 'Inserisci il nome' : null),
           const SizedBox(height: 12),
-          // Field Nickname aggiunto e modificabile
           _buildTextFormField(_nicknameController, "Nickname", Icons.alternate_email, (v) => v == null || v.trim().isEmpty ? 'Inserisci un nickname' : null),
           const SizedBox(height: 12),
           Row(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_sign_in/google_sign_in.dart'; 
+import 'package:google_sign_in/google_sign_in.dart';
 import '../services/database_helper.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,9 +17,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  // 🟢 AGGIUNTA LA FORM KEY per la validazione automatica
-  final _formKey = GlobalKey<FormState>();
-
+  final _formKey = GlobalKey<FormState>(); // 🟢 Aggiunto per far funzionare i controlli TextFormField
   bool isLogin = true; 
 
   final TextEditingController _nameController = TextEditingController();
@@ -54,9 +52,8 @@ class _AuthScreenState extends State<AuthScreen> {
   // 🔐 LOGICA DI REGISTRAZIONE MANUALE (SQLITE)
   // ==========================================================
   Future<void> _handleEmailRegister() async {
-    // 🟢 CONTROLLO VALIDAZIONE: Verifica che tutti i campi siano compilati correttamente
     if (!_formKey.currentState!.validate()) return;
-
+    
     if (_passwordController.text != _confirmPasswordController.text) {
       _showSnackBar("Le password non coincidono!", isError: true);
       return;
@@ -75,18 +72,14 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      // Estraiamo un nickname provvisorio dalla prima parte dell'email
-      String generatedNickname = _emailController.text.trim().split('@').first;
-
-      // 🟢 BUG FIXATO: Inserisce l'utente e prende DIRETTAMENTE il suo ID senza query inutili
+      // 🟢 CORRETTO: Inserisce i dati e prende subito il VERO ID di SQLite!
       int newUserId = await db.insert('users', {
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'password': _passwordController.text, 
-        'nickname': generatedNickname,
+        'nickname': _emailController.text.trim().split('@').first,
       });
 
-      // Salvataggio Sessione
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('logged_in_uid', newUserId.toString());
 
@@ -95,7 +88,6 @@ class _AuthScreenState extends State<AuthScreen> {
       }
     } catch (e) {
       print("Errore registrazione: $e");
-      _showSnackBar("Errore durante la registrazione", isError: true);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -106,7 +98,7 @@ class _AuthScreenState extends State<AuthScreen> {
   // ==========================================================
   Future<void> _handleEmailLogin() async {
     if (!_formKey.currentState!.validate()) return;
-
+    
     setState(() => isLoading = true);
 
     try {
@@ -136,15 +128,13 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   // ==========================================================
-  // 🌐 LOGICA DI AUTENTICAZIONE CON GOOGLE CORRETTA
+  // 🌐 LOGICA DI AUTENTICAZIONE CON GOOGLE
   // ==========================================================
   Future<void> _handleGoogleAuth() async {
     setState(() => isLoading = true);
     try {
+      // 🟢 Sconnette vecchie sessioni per farti scegliere l'account
       final GoogleSignIn googleSignIn = GoogleSignIn();
-      
-      // 🟢 FORZATURA FONDAMENTALE: Sconnetti prima qualsiasi sessione Google rimasta appesa
-      // per costringere Android/iOS a mostrare la finestra di selezione dell'account!
       if (await googleSignIn.isSignedIn()) {
         await googleSignIn.signOut();
       }
@@ -153,40 +143,37 @@ class _AuthScreenState extends State<AuthScreen> {
       
       if (googleUser != null) {
         final db = await DatabaseHelper.instance.database;
-        
-        // Controlliamo se l'utente esiste già nel DB locale tramite email
         final existingUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
         
+        int sqliteId;
+
+        // 🟢 CORRETTO: Creiamo l'utente se non esiste e usiamo SOLO l'ID di SQLite!
         if (existingUser.isEmpty) {
-          String generatedNickname = googleUser.email.split('@').first;
-          await db.insert('users', {
+          sqliteId = await db.insert('users', {
             'name': googleUser.displayName ?? 'Utente Google',
             'email': googleUser.email,
             'password': 'google_auth_placeholder', 
-            'nickname': generatedNickname,
+            'nickname': googleUser.email.split('@').first,
           });
+        } else {
+          sqliteId = existingUser.first['id'] as int;
         }
 
-        // Risincronizziamo l'ID corretto leggendolo dal database SQLite
-        final syncUser = await db.query('users', where: 'email = ?', whereArgs: [googleUser.email]);
-        if (syncUser.isNotEmpty) {
-          final prefs = await SharedPreferences.getInstance();
-          // Salviamo l'ID numerico reale di SQLite nelle SharedPreferences
-          await prefs.setString('logged_in_uid', syncUser.first['id'].toString());
-        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_in_uid', sqliteId.toString());
 
         if (mounted) {
-          Navigator.pop(context, true); // Ritorna true al BaseLayout per aggiornare l'interfaccia
+          Navigator.pop(context, true);
         }
       }
     } catch (error) {
       print("Errore Google Sign-In: $error");
-      _showSnackBar("Errore di accesso con Google. Riprova.", isError: true);
+      _showSnackBar("Errore di accesso: $error", isError: true);
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,8 +188,7 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
       body: SafeArea(
         child: Center(
-          // 🟢 AGGIUNTO IL FORM: Necessario per far funzionare _formKey
-          child: Form(
+          child: Form( // 🟢 Aggiunto Form per validazione
             key: _formKey,
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -229,12 +215,11 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: !isLogin
                         ? Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            // 🟢 CAMBIATO DA TextField a TextFormField
-                            child: TextFormField(
+                            child: TextFormField( // 🟢 Usiamo TextFormField
                               controller: _nameController,
                               style: GoogleFonts.montserrat(),
                               decoration: _buildInputDecoration("Nome e Cognome", Icons.person_outline),
-                              validator: (value) => !isLogin && (value == null || value.trim().isEmpty) ? "Inserisci il tuo nome" : null,
+                              validator: (value) => !isLogin && (value == null || value.isEmpty) ? "Campo obbligatorio" : null,
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -245,7 +230,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     keyboardType: TextInputType.emailAddress,
                     style: GoogleFonts.montserrat(),
                     decoration: _buildInputDecoration("Indirizzo Email", Icons.email_outlined),
-                    validator: (value) => value == null || value.trim().isEmpty || !value.contains('@') ? "Inserisci un'email valida" : null,
+                    validator: (value) => value == null || !value.contains('@') ? "Email non valida" : null,
                   ),
                   const SizedBox(height: 16),
 
@@ -261,7 +246,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
-                    validator: (value) => value == null || value.trim().isEmpty ? "Inserisci la password" : null,
+                    validator: (value) => value == null || value.isEmpty ? "Inserisci la password" : null,
                   ),
 
                   AnimatedSize(
@@ -281,7 +266,6 @@ class _AuthScreenState extends State<AuthScreen> {
                                   onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                                 ),
                               ),
-                              validator: (value) => !isLogin && value != _passwordController.text ? "Le password non coincidono" : null,
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -392,11 +376,9 @@ class _AuthScreenState extends State<AuthScreen> {
       filled: true,
       fillColor: Colors.grey[100],
       contentPadding: const EdgeInsets.symmetric(vertical: 16),
-      errorStyle: GoogleFonts.montserrat(fontSize: 11, fontWeight: FontWeight.w500),
+      errorStyle: GoogleFonts.montserrat(fontSize: 11),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: primaryGreen, width: 1.5)),
-      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1.0)),
-      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.redAccent, width: 1.5)),
     );
   }
 }
