@@ -1,7 +1,7 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:weekbite/main.dart';
 import 'package:weekbite/screens/ingredienti_model.dart';
-import 'package:weekbite/database/database_helper.dart'; 
+import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/dispensa.dart'; 
 import 'package:flutter/material.dart';
 

@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:translator/translator.dart';
 import 'recipe.dart'; 
-import '../database/database_helper.dart'; // 📂 Importazione del Database
+import '../services/database_helper.dart'; // 📂 Importazione del Database
 import 'dart:io';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import '../database/database_helper.dart';
+import '../services/database_helper.dart';
 
 // Manteniamo le costanti grafiche definite nel tuo tema principale
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);

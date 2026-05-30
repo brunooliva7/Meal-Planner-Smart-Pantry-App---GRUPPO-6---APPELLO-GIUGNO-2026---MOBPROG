@@ -10,6 +10,8 @@ import 'screens/user_profile_screen.dart';
 import 'screens/auth_screen.dart'; 
 import 'screens/create_recipe_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:weekbite/services/notification_service.dart'; 
+
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -25,8 +27,9 @@ const double navBarTextSize = 12.0;
 const Color kTextDark = Color(0xFF1A1A2E); 
 const Color kTextMuted = Color(0xFF9CA3AF);
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(const MyApp());
 }
 

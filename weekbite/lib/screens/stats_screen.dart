@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../database/database_helper.dart'; // <-- IMPORT DEL DATABASE DEL TEAM
+import '../services/database_helper.dart'; // <-- IMPORT DEL DATABASE DEL TEAM
 
 // COLORI UFFICIALI
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);

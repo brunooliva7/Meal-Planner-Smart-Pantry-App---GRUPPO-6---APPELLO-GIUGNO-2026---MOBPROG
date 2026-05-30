@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:translator/translator.dart'; 
 import 'search_screen.dart';
 import 'recipe.dart'; 
-import '../database/database_helper.dart';
+import '../services/database_helper.dart';
 
 class MainScreen extends StatefulWidget {
   final bool isLogged;

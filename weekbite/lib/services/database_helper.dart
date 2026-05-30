@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:weekbite/screens/recipe_model.dart'; // Assicurati che il percorso sia corretto per il tuo progetto
+import 'package:weekbite/screens/recipe_model.dart';
 import 'package:weekbite/screens/ingredienti_model.dart';
 
 class DatabaseHelper {
-  // Pattern Singleton: garantisce che esista una sola istanza del database in tutta l'app
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 
@@ -23,55 +22,51 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // 🟢 BUMP ALLA VERSIONE 2 (FONDAMENTALE)
+      version: 4, // 🟢 BUMP ALLA VERSIONE 4 PER FORZARE L'AGGIORNAMENTO
       onCreate: _createDB,
-      onUpgrade: _onUpgrade, // 🟢 AGGIUNTO IL METODO DI AGGIORNAMENTO
+      onUpgrade: _onUpgrade,
       onConfigure: _onConfigure, 
     );
   }
 
-  // Abilita il supporto nativo per le chiavi esterne in SQLite
   Future _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
   // ==========================================================
-  // 📐 CREAZIONE DELLE TABELLE DA ZERO (Per chi installa l'app ora)
+  // 📐 CREAZIONE DELLE TABELLE DA ZERO (Nuovi Utenti)
   // ==========================================================
   Future _createDB(Database db, int version) async {
-
     await db.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT UNIQUE,
-      password TEXT,
-      nickname TEXT
-    )
-  ''');
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT UNIQUE,
+        password TEXT,
+        nickname TEXT
+      )
+    ''');
   
-  // Tabella Profili
-  await db.execute('''
-    CREATE TABLE IF NOT EXISTS user_profiles (
-      user_id INTEGER PRIMARY KEY,
-      peso REAL,
-      altezza REAL,
-      bio TEXT,
-      image_path TEXT
-    )
-  ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id INTEGER PRIMARY KEY,
+        peso REAL,
+        altezza REAL,
+        bio TEXT,
+        image_path TEXT
+      )
+    ''');
     
     await db.execute('''
-      CREATE TABLE favorites (
+      CREATE TABLE IF NOT EXISTS favorites (
         id INTEGER PRIMARY KEY,
         title TEXT,
         image TEXT
       )
     ''');
 
-    // 4. Tabella Ricette Salvate
     await db.execute('''
-      CREATE TABLE saved_recipes (
+      CREATE TABLE IF NOT EXISTS saved_recipes (
         id INTEGER PRIMARY KEY,
         title TEXT,
         image TEXT,
@@ -86,14 +81,14 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE planners (
+      CREATE TABLE IF NOT EXISTS planners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL UNIQUE
       )
     ''');
 
     await db.execute('''
-      CREATE TABLE meals (
+      CREATE TABLE IF NOT EXISTS meals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         planner_id INTEGER NOT NULL,
         day TEXT NOT NULL,
@@ -103,10 +98,8 @@ class DatabaseHelper {
       )
     ''');
 
-    
-
     await db.execute('''
-      CREATE TABLE dispensa (
+      CREATE TABLE IF NOT EXISTS dispensa (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT,
         quantita REAL,
@@ -118,7 +111,7 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE lista_spesa (
+      CREATE TABLE IF NOT EXISTS lista_spesa (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT,
         quantita REAL,
@@ -129,8 +122,8 @@ class DatabaseHelper {
       )
     ''');
 
-      await db.execute('''
-      CREATE TABLE api_cache (
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS api_cache (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         recipe_id INTEGER,
         cache_date TEXT,
@@ -138,50 +131,36 @@ class DatabaseHelper {
         data_json TEXT
       )
     ''');
+
+    // 🟢 AGGIUNTA LA TABELLA MANCANTE PER LE RICETTE VIRALI
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS viral_recipes_cache (
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        image TEXT,
+        recipe_json TEXT,
+        fetch_date TEXT
+      )
+    ''');
   }
 
   // ==========================================================
-  // ⬆️ AGGIORNAMENTO DEL DATABASE (Per te che lo avevi già installato)
+  // ⬆️ AGGIORNAMENTO DEL DATABASE (Vecchi Utenti)
   // ==========================================================
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Aggiunge la tabella users se si passa dalla versione 1 alla 2
-      await db.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-          uid TEXT PRIMARY KEY,
-          email TEXT NOT NULL,
-          name TEXT,
-          photo_url TEXT,
-          preferences_json TEXT,
-          registration_date TEXT,
-          password TEXT
-        )
-      ''');
-
-      await db.execute('''
-      CREATE TABLE user_profiles (
-        user_id INTEGER PRIMARY KEY,
-        peso REAL,
-        altezza REAL,
-        bio TEXT,
-        image_path TEXT
-      )
-    ''');
-
+    // Forza la creazione di TUTTE le tabelle mancanti in modo sicuro
+    await _createDB(db, newVersion);
     
-      if (oldVersion < 3) {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS dispensa (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT, quantita REAL, unitaMisura TEXT, pezzi INTEGER, categoria TEXT, dataScadenza TEXT
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS lista_spesa (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT, quantita REAL, unitaMisura TEXT, pezzi INTEGER, categoria TEXT, dataScadenza TEXT
-          )
-        ''');
+    // Se c'è la vecchia tabella "users" corrotta (con uid TEXT), 
+    // l'ideale in fase di sviluppo è ricrearla per allinearla al nuovo modello.
+    // Nota: in produzione servirebbe una migrazione complessa, ma qui evitiamo crash.
+    if (oldVersion < 4) {
+      try {
+        // Tentativo di aggiungere la colonna nickname se mancante nei vecchi DB
+        await db.execute("ALTER TABLE users ADD COLUMN nickname TEXT;");
+      } catch (e) {
+        // Ignora l'errore se la colonna esiste già o la tabella ha uno schema troppo diverso
+        print("Migrazione colonna nickname: ${e.toString()}");
       }
     }
   }
@@ -298,8 +277,6 @@ class DatabaseHelper {
   // ==========================================================
   // 📅 OPERAZIONI 4: MEAL PLANNER
   // ==========================================================
-  
-  // 🟢 INSERIMENTO / SALVATAGGIO COMPLETO
   Future<void> saveFullPlanner(
     String name, 
     Map<String, List<String>> dayMealTypes, 
@@ -313,7 +290,6 @@ class DatabaseHelper {
       for (var day in associatedRecipes.keys) {
         for (var mealType in associatedRecipes[day]!.keys) {
           List<RecipeModel> recipes = associatedRecipes[day]![mealType]!;
-          
           String jsonRecipes = jsonEncode(recipes.map((r) => r.toMap()).toList());
 
           await txn.insert('meals', {
@@ -327,7 +303,6 @@ class DatabaseHelper {
     });
   }
 
-  // 🟡 MODIFICA (UPDATE)
   Future<void> updatePlanner(
     int plannerId,
     String newName,
@@ -362,7 +337,6 @@ class DatabaseHelper {
     });
   }
 
-  // 🔵 LETTURA (FETCH) SPECIFICA
   Future<Map<String, dynamic>?> getPlannerComplete(String name) async {
     final db = await instance.database;
 
@@ -398,14 +372,12 @@ class DatabaseHelper {
     };
   }
  
-  // Recupera solo i nomi (per la lista di scelta)
   Future<List<String>> getAllPlannerNames() async {
     final db = await instance.database;
     final res = await db.query('planners');
     return res.map((row) => row['name'] as String).toList();
   }
 
-  // Elimina un planner
   Future<int> deletePlanner(int id) async {
     final db = await instance.database;
     return await db.delete('planners', where: 'id = ?', whereArgs: [id]);
@@ -414,35 +386,34 @@ class DatabaseHelper {
   // ==========================================================
   // 👤 OPERAZIONI UTENTE
   // ==========================================================
+  
+  // 🟢 FUNZIONE ALLINEATA: Ora utilizza i campi corretti della tabella `users` (id, name, email, password, nickname)
   Future<void> saveOrUpdateUser(Map<String, dynamic> userData) async {
     final db = await instance.database;
     
+    // Inseriamo i dati rispettando lo schema corretto definito in _createDB
     await db.insert(
       'users',
       {
-        'uid': userData['uid'],
+        'name': userData['name'] ?? 'Utente',
         'email': userData['email'],
-        'name': userData['name'],
-        'photo_url': userData['photo_url'],
-        'preferences_json': userData['preferences_json'] ?? '{}',
-        'registration_date': DateTime.now().toIso8601String(),
-        'password': userData['password'], // Aggiunto per salvare la password
+        'password': userData['password'] ?? '', 
+        'nickname': userData['nickname'] ?? userData['email'].toString().split('@').first,
       },
       conflictAlgorithm: ConflictAlgorithm.replace, 
     );
   }
 
-  // 🟢 SALVA LA CACHE DELLA DISPENSA
+  // 🟢 SALVA LA CACHE DELLA DISPENSA E ALTRE FUNZIONI ESISTENTI...
   Future<void> savePantryCache(List<dynamic> recipes, String dateStr) async {
     final db = await instance.database;
-    // Pulisce la cache dei giorni precedenti
     await db.delete('api_cache', where: 'cache_date != ? AND cache_type = ?', whereArgs: [dateStr, 'pantry']);
     
     for (var recipe in recipes) {
       await db.insert('api_cache', {
         'recipe_id': recipe['id'] ?? 0,
         'cache_date': dateStr,
-        'cache_type': 'pantry', // <-- Tag specifico per non mischiarle con le virali
+        'cache_type': 'pantry', 
         'data_json': jsonEncode(recipe),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -456,26 +427,18 @@ class DatabaseHelper {
     
     final id = await db.insert(nomeTabella, ingredienteMap);
     ingrediente.id = id;
-    print("200");
     return ingrediente;
   }
 
-  // Legge tutti gli ingredienti da una tabella
   Future<List<Ingredienti>> getIngredienti(String nomeTabella) async {
     final db = await instance.database;
     final result = await db.query(nomeTabella);
-    print("200");
     return result.map((json) => Ingredienti.fromMap(json)).toList();
   }
 
-  // Aggiorna un ingrediente esistente (Modifica)
   Future<int> updateIngrediente(String nomeTabella, Ingredienti ingrediente) async {
-    if (ingrediente.id == null) {
-      print("⚠️ ERRORE: Impossibile aggiornare '${ingrediente.nome}', l'ID è null!");
-      return 0; // Interrompiamo la funzione per evitare l'errore rosso
-    }
+    if (ingrediente.id == null) return 0; 
     final db = await instance.database;
-    print("200");
     return await db.update(
       nomeTabella,
       ingrediente.toMap(),
@@ -484,18 +447,11 @@ class DatabaseHelper {
     );
   }
 
-  // Elimina un ingrediente (Cestino)
   Future<int> deleteIngrediente(String nomeTabella, int id) async {
     final db = await instance.database;
-    print("200");
-    return await db.delete(
-      nomeTabella,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete(nomeTabella, where: 'id = ?', whereArgs: [id]);
   }
 
-  // 🟢 LEGGE LA CACHE DELLA DISPENSA DEL GIORNO ATTUALE
   Future<List<dynamic>> getPantryCache(String dateStr) async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -506,22 +462,12 @@ class DatabaseHelper {
     return maps.map((e) => jsonDecode(e['data_json'] as String)).toList();
   }
 
-  // ==========================================================
-  // 🍳 RECUPERO INGREDIENTI PER L'API SPOONACULAR
-  // ==========================================================
-  // Restituisce solo una lista di nomi testuali dalla dispensa
   Future<List<String>> getDispensaIngredients() async {
     final db = await instance.database;
-    // Peschiamo solo la colonna "nome" dalla tabella "dispensa"
     final res = await db.query('dispensa', columns: ['nome']);
-    
-    // Trasformiamo il risultato del database in una semplice lista di parole
     return res.map((row) => row['nome'] as String).toList();
   }
 
-  // ==========================================================
-  // CHIUSURA DATABASE
-  // ==========================================================
   Future close() async {
     final db = await instance.database;
     db.close();

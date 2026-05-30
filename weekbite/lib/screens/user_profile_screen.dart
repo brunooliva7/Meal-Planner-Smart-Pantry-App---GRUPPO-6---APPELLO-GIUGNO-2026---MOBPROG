@@ -8,6 +8,7 @@ import 'stats_screen.dart';
 import 'recipe.dart'; 
 import '../database/database_helper.dart';
 import 'package:sqflite/sqflite.dart'; // Richiesto per ConflictAlgorithm
+import '../services/database_helper.dart';
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart'; 
 import 'package:translator/translator.dart'; 
-import '../database/database_helper.dart'; 
+import '../services/database_helper.dart'; 
 import 'dart:io';
 import 'dart:convert'; // 🟢 Aggiunto per decodificare il JSON dell'API
 import 'package:http/http.dart' as http; // 🟢 Aggiunto per fare la chiamata di matching
