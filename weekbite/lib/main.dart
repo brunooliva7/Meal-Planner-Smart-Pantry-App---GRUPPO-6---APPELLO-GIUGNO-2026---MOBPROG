@@ -6,7 +6,9 @@ import 'screens/main_screen.dart';
 import 'screens/mealplanner.dart'; // Mantenuto se lo usi altrove
 import 'screens/createplanner.dart';
 import 'screens/user_profile_screen.dart';
-import 'screens/auth_screen.dart'; // 🔴 IMPORTAZIONE DELLA SCHERMATA DI LOGIN
+import 'screens/auth_screen.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -80,6 +82,26 @@ class _BaseLayoutState extends State<BaseLayout> {
 
   // 🔴 VARIABILE PER CONTROLLARE SE L'UTENTE È LOGGATO
   bool isUserLogged = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPersistentLogin(); // 🟢 Controlla subito se c'è una sessione salvata!
+  }
+
+  Future<void> _checkPersistentLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uid = prefs.getString('logged_in_uid');
+      if (uid != null && uid.isNotEmpty) {
+        setState(() {
+          isUserLogged = true;
+        });
+      }
+    } catch (e) {
+      print("Errore caricamento sessione SharedPreferences: $e");
+    }
+  }
 
     // 🟢 ORDINE DELLE PAGINE CORRETTO (5 Pagine esatte, da indice 0 a indice 4)
     List<Widget> _getPages() {

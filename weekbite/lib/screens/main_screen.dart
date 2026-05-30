@@ -55,17 +55,50 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  // 🟢 NUOVA LOGICA DISPENSA: Traduzione + Cache Giornaliera
   Future<void> _loadPantryBasedRecipes() async {
     setState(() => isLoadingPantry = true);
+    String todayStr = DateTime.now().toString().split(' ')[0];
+
     try {
-      List<String> myIngredients = ['tomato', 'pasta', 'cheese']; 
-      
-      if (myIngredients.isEmpty) {
+      // 1. VERIFICA CACHE LOCALE (Scaricata una volta al giorno)
+      List<dynamic> cachedPantry = await DatabaseHelper.instance.getPantryCache(todayStr);
+
+      if (cachedPantry.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            pantryRecipes = cachedPantry;
+            isLoadingPantry = false;
+          });
+        }
+        return; // Esce: dati presi dal database locale, zero chiamate API!
+      }
+
+      // 2. RECUPERO INGREDIENTI DALLA DISPENSA
+      // Assumiamo che tu abbia/creerai un metodo getDispensaIngredients() nel DB
+      List<String> myIngredientsItalian = [];
+      try {
+        // myIngredientsItalian = await DatabaseHelper.instance.getDispensaIngredients();
+        if(myIngredientsItalian.isEmpty) myIngredientsItalian = ['pomodoro', 'pasta', 'basilico']; // Dati finti di sicurezza
+      } catch (e) {
+        myIngredientsItalian = ['pomodoro', 'pasta', 'basilico']; 
+      }
+
+      if (myIngredientsItalian.isEmpty) {
         setState(() => isLoadingPantry = false);
         return;
       }
 
-      final ingredientsQuery = myIngredients.join(',');
+      // 3. TRADUZIONE INGREDIENTI (IT -> EN)
+      final translator = GoogleTranslator();
+      List<String> englishIngredients = [];
+      for (String ing in myIngredientsItalian) {
+        var t = await translator.translate(ing, from: 'it', to: 'en');
+        englishIngredients.add(t.text.toLowerCase());
+      }
+
+      // 4. CHIAMATA API CON GLI INGREDIENTI IN INGLESE
+      final ingredientsQuery = englishIngredients.join(',+');
       const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
       final url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientsQuery&number=5&apiKey=$apiKey';
 
@@ -73,11 +106,14 @@ class _MainScreenState extends State<MainScreen> {
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
         
-        final translator = GoogleTranslator();
+        // 5. TRADUZIONE RISULTATI (EN -> IT)
         for (var recipe in data) {
-          var translation = await translator.translate(recipe['title'], from: 'en', to: 'it');
+          var translation = await translator.translate(recipe['title'] ?? '', from: 'en', to: 'it');
           recipe['title'] = translation.text;
         }
+
+        // 6. SALVATAGGIO IN CACHE PER IL RESTO DELLA GIORNATA
+        await DatabaseHelper.instance.savePantryCache(data, todayStr);
 
         if (mounted) {
           setState(() {
@@ -85,6 +121,8 @@ class _MainScreenState extends State<MainScreen> {
             isLoadingPantry = false;
           });
         }
+      } else {
+        if (mounted) setState(() => isLoadingPantry = false);
       }
     } catch (e) {
       print("Errore API Dispensa: $e");
@@ -214,7 +252,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // 🟢 HORIZONTAL LIST CORRETTA PER IMMAGINI MANCANTI
   Widget _buildHorizontalList(List list, bool isFromApi) {
     if (list.isEmpty) {
       return Padding(
@@ -233,7 +270,6 @@ class _MainScreenState extends State<MainScreen> {
           final recipe = list[index];
           String imageUrl = recipe['image'] ?? '';
 
-          // Logica di fallback: Se l'URL non esiste o è vuoto, usa un contenitore segnaposto
           Widget imageWidget;
           if (imageUrl.isNotEmpty && imageUrl.startsWith('http')) {
             imageWidget = Image.network(
@@ -264,7 +300,7 @@ class _MainScreenState extends State<MainScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: imageWidget, // Mostra l'immagine o il segnaposto
+                    child: imageWidget, 
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -282,7 +318,6 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // 🟢 GRIGLIA VIRALE CORRETTA PER IMMAGINI MANCANTI
   Widget _buildApiSliverGrid(ThemeData theme) {
     if (isLoadingViral) {
       return const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator()));
@@ -323,7 +358,7 @@ class _MainScreenState extends State<MainScreen> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15),
-                      child: imageWidget, // Mostra l'immagine o il segnaposto
+                      child: imageWidget, 
                     ),
                   ),
                   Padding(
