@@ -12,8 +12,9 @@ const Color backgroundColor = Colors.white;
 const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
-
+  final bool isLogged; 
+  final int? userId;   
+  const SearchScreen({super.key, required this.isLogged, this.userId}); 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
@@ -79,14 +80,12 @@ class _SearchScreenState extends State<SearchScreen> {
       List<Map<String, dynamic>> res;
 
       if (query.isEmpty) {
-        // Se la barra è vuota, mostra TUTTE le ricette salvate
-        res = await db.query('saved_recipes');
+        res = await db.query('saved_recipes', where: 'user_id = ?', whereArgs: [widget.userId]);
       } else {
-        // Cerca la parola chiave nel titolo
         res = await db.query(
           'saved_recipes', 
-          where: 'title LIKE ?', 
-          whereArgs: ['%$query%'] // Il % serve per dire "contiene questa parola"
+          where: 'title LIKE ? AND user_id = ?', 
+          whereArgs: ['%$query%', widget.userId] 
         );
       }
 
@@ -194,7 +193,7 @@ class _SearchScreenState extends State<SearchScreen> {
           // ==========================================================
           // 🔘 TOGGLE: ESPLORA WEB / LE MIE RICETTE (Solo se loggato)
           // ==========================================================
-          if (isUserLogged)
+          if (widget.isLogged)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Container(

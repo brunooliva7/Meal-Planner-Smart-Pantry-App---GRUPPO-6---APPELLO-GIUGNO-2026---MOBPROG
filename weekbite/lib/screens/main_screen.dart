@@ -38,18 +38,21 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _refreshAllData() async {
-
     final prefs = await SharedPreferences.getInstance();
     final String? uidStr = prefs.getString('logged_in_uid');
     if (uidStr != null && uidStr.isNotEmpty) {
       currentUserId = int.tryParse(uidStr);
     }
-
-    await _loadViralRecipes();
-    if (widget.isLogged) {
-      await _loadUserFavorites();
-      await _loadPantryBasedRecipes();
+    List<Future> tasks = [];
+    
+    tasks.add(_loadViralRecipes());
+    
+    if (widget.isLogged && currentUserId != null) {
+      tasks.add(_loadUserFavorites());
+      tasks.add(_loadPantryBasedRecipes());
     }
+
+    await Future.wait(tasks);
   }
 
   Future<void> _loadUserFavorites() async {
@@ -250,16 +253,14 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  // 🟢 AGGIUNTO: Barra di ricerca dinamica col pulsante "Aggiungi Ricetta"
   Widget _buildSearchBar(BuildContext context, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // Expanded stringe la barra in modo elastico per fare spazio al pulsante
           Expanded(
             child: InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(isLogged: widget.isLogged,userId: currentUserId!))),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -284,7 +285,6 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
           
-          // Se l'utente è loggato, mostra il pulsante col "+"
           if (widget.isLogged) ...[
             const SizedBox(width: 12),
             Container(
@@ -301,9 +301,8 @@ class _MainScreenState extends State<MainScreen> {
                 onPressed: () {
                   Navigator.push(
                     context, 
-                    MaterialPageRoute(builder: (_) => const CreateRecipeScreen())
+                    MaterialPageRoute(builder: (_) => CreateRecipeScreen(userId: currentUserId!)) // 🟢 AGGIUNTO
                   ).then((_) {
-                    // Quando torni indietro dalla creazione ricetta, aggiorna la dashboard!
                     _refreshAllData();
                   });
                 },
