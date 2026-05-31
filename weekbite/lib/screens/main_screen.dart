@@ -206,10 +206,9 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
+    return SafeArea(
+      bottom: false,
+      child: Column(
           children: [
             _buildSearchBar(context, theme),
             Expanded(
@@ -246,7 +245,6 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
