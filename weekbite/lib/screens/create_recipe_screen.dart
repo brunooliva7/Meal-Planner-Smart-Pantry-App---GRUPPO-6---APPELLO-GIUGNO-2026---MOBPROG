@@ -84,6 +84,20 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
  Future<void> _saveRecipe() async {
     if (!_formKey.currentState!.validate()) return;
 
+    // 🟢 1. RECUPERA L'ID REALE DIRETTAMENTE DALLA MEMORIA AL MOMENTO DEL CLICK
+    final prefs = await SharedPreferences.getInstance();
+    int realUserId = prefs.getInt('userId') ?? 0;
+
+    // Se l'ID è 0, significa che la sessione è persa o c'è un errore
+    if (realUserId == 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sessione scaduta. Fai di nuovo il login per salvare la ricetta.', style: GoogleFonts.montserrat()), backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+
     List<Map<String, dynamic>> extIngredients = _ingredients.map((ing) {
       return {
         'name': ing.nameCtrl.text.trim(),
@@ -108,14 +122,13 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
       'personalNotes': '', 
     };
 
-    // 🟢 AGGIUNTO: blocco try-catch per non far morire l'app se c'è un problema
     try {
-      await DatabaseHelper.instance.downloadRecipe(customRecipe, widget.userId);
-      await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath, widget.userId);
+      // 🟢 2. USA L'ID REALE (realUserId) INVECE DI QUELLO DEL WIDGET
+      await DatabaseHelper.instance.downloadRecipe(customRecipe, realUserId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ricetta creata e aggiunta ai Preferiti!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+          SnackBar(content: Text('Ricetta creata e salvata nel ricettario!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
         );
         Navigator.pop(context); 
       }

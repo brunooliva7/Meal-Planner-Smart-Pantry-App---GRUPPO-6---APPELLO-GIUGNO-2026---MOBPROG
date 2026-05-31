@@ -146,22 +146,25 @@ class _BaseLayoutState extends State<BaseLayout> {
                 MaterialPageRoute(builder: (context) => const AuthScreen()),
               );
               
-              if (!mounted) return;
-
               if (hasLoggedIn == true) {
-                final prefs = await SharedPreferences.getInstance();
-                final int? uid = prefs.getInt('userId');
-                
-                setState(() {
-                  isUserLogged = true;
-                  if (uid != null) {
-                    loggedUserId = uid; // 🟢 CORRETTO: Estrae immediatamente l'ID utente per evitare il valore 0
-                  }
-                  _selectedIndex = 1; 
-                });
-              }
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.reload();
+                  final int? uid = prefs.getInt('userId');
+                  
+                  setState(() {
+                    isUserLogged = (uid != null && uid > 0);
+                    loggedUserId = uid ?? 0;
+                  });
+
+                  // 🟢 LA SVOLTA: Invece di limitarti a cambiare indice, 
+                  // assicurati che il Navigator sappia che deve resettare la pagina
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => MainScreen(isLogged: true)),
+                  );
+                }
             },
-            child: Text("Accedi / Registrati", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text("Accedi / Registrati", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
           )
         ],
       ),

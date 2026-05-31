@@ -39,20 +39,33 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _refreshAllData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? uidStr = prefs.getString('logged_in_uid');
-    if (uidStr != null && uidStr.isNotEmpty) {
-      currentUserId = int.tryParse(uidStr);
-    }
-    List<Future> tasks = [];
+    int? loadedId = prefs.getInt('userId');
     
+    // 🟢 setState forza Flutter a ridisegnare la pagina con il nuovo ID
+    setState(() {
+      currentUserId = loadedId;
+    });
+    
+    print("DEBUG MAIN SCREEN: ID Utente caricato: $currentUserId");
+    
+    List<Future> tasks = [];
     tasks.add(_loadViralRecipes());
     
-    if (widget.isLogged && currentUserId != null) {
+    if (currentUserId != null && currentUserId! > 0) {
       tasks.add(_loadUserFavorites());
       tasks.add(_loadPantryBasedRecipes());
     }
 
     await Future.wait(tasks);
+    
+    // 🟢 Secondo setState dopo aver caricato i dati per mostrare le liste
+    if (mounted) {
+      setState(() {
+        isLoadingViral = false;
+        isLoadingPantry = false;
+        isLoadingFavorites = false;
+      });
+    }
   }
 
   Future<void> _loadUserFavorites() async {
@@ -355,7 +368,8 @@ class _MainScreenState extends State<MainScreen> {
               margin: const EdgeInsets.only(right: 12),
               child: InkWell(
                 onTap: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi))),
+                  builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi)
+                )).then((_) => _refreshAllData()),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -411,7 +425,8 @@ class _MainScreenState extends State<MainScreen> {
 
             return InkWell(
               onTap: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: true))),
+                builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: true)
+              )).then((_) => _refreshAllData()),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
