@@ -515,7 +515,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => RecipeDetailScreen(recipeData: recipe, isFromApi: isFromApi)),
-                  );
+                  ).then((_) => _loadProfileAndData());
                 },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
