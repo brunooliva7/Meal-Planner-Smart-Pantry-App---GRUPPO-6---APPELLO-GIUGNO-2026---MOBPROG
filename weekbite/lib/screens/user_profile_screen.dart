@@ -72,23 +72,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     setState(() => isLoading = true);
     
     final prefs = await SharedPreferences.getInstance();
-    final String? uid = prefs.getString('logged_in_uid');
+    
+    // 🟢 FIX 1: Cerchiamo 'userId' come Numero (esattamente come nel main e nel login)
+    final int? userId = prefs.getInt('userId');
 
-    // 🟢 FIX: Blocchiamo anche la stringa testuale 'null'
-    if (uid != null && uid.isNotEmpty && uid != 'null') {
+    if (userId != null) {
       isUserLogged = true;
       final db = await DatabaseHelper.instance.database;
-      
-      // 🟢 FIX: tryParse tenta di convertire, ma se fallisce non fa crashare l'app
-      final int? userId = int.tryParse(uid);
-      
-      if (userId == null) {
-        // Se c'è sporcizia in memoria, chiudiamo la sessione corrotta
-        if (mounted) setState(() { isUserLogged = false; isLoading = false; });
-        return;
-      }
 
-      // 🟢 FIX 2: CHIAMATE PARALLELE! 
+      // CHIAMATE PARALLELE
       final results = await Future.wait([
         db.query('users', where: 'id = ?', whereArgs: [userId]),
         db.query('user_profiles', where: 'user_id = ?', whereArgs: [userId]),
@@ -205,11 +197,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final String? uid = prefs.getString('logged_in_uid');
-    if (uid == null) return;
+    
+    // 🟢 FIX 2: Usiamo sempre 'userId' come numero
+    final int? userId = prefs.getInt('userId');
+    if (userId == null) return;
 
     final db = await DatabaseHelper.instance.database;
-    int userId = int.parse(uid);
 
     await db.update(
       'users',

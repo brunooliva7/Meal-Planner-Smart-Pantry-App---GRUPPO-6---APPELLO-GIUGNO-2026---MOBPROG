@@ -423,13 +423,13 @@ class DatabaseHelper {
     }
   }
 
-  Future<Ingredienti> addIngrediente(String nomeTabella, Ingredienti ingrediente) async {
+  Future<Ingredienti> addIngrediente(String nomeTabella, Ingredienti ingrediente, int userId) async {
     final db = await instance.database;
 
     final List<Map<String, dynamic>> esistentiMap = await db.query(
       nomeTabella,
-      where: 'LOWER(nome) = LOWER(?)',
-      whereArgs: [ingrediente.nome.trim()],
+      where: 'LOWER(nome) = LOWER(?) AND fk_utente = ?',
+      whereArgs: [ingrediente.nome.trim(), userId],
     );
 
     final List<Ingredienti> esistenti = esistentiMap.map((row) => Ingredienti.fromMap(row)).toList();
@@ -457,17 +457,38 @@ class DatabaseHelper {
 
     final ingredienteMap = ingrediente.toMap();
     ingredienteMap.remove('id'); 
-    
+    ingredienteMap['fk_utente'] = userId;
+
     final id = await db.insert(nomeTabella, ingredienteMap);
     ingrediente.id = id; 
     
     return ingrediente;
   }
 
-  Future<List<Ingredienti>> getIngredienti(String nomeTabella) async {
+ Future<List<Ingredienti>> getIngredienti(String nomeTabella, int userId) async {
     final db = await instance.database;
-    final result = await db.query(nomeTabella);
+    final result = await db.query(
+      nomeTabella,
+      where: 'fk_utente = ?',
+      whereArgs: [userId]
+    );
     return result.map((json) => Ingredienti.fromMap(json)).toList();
+  }
+
+  Future<List<String>> getDispensaIngredient(int userId) async {
+    final db = await instance.database;
+    final res = await db.query(
+      'dispensa', 
+      columns: ['nome'],
+      where: 'fk_utente = ?',
+      whereArgs: [userId]
+    );
+    return res.map((row) => row['nome'] as String).toList();
+  }
+
+  Future<int> deleteIngrediente(String nomeTabella, int id) async {
+    final db = await instance.database;
+    return await db.delete(nomeTabella, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> updateIngrediente(String nomeTabella, Ingredienti ingrediente) async {
@@ -480,12 +501,7 @@ class DatabaseHelper {
       whereArgs: [ingrediente.id],
     );
   }
-
-  Future<int> deleteIngrediente(String nomeTabella, int id) async {
-    final db = await instance.database;
-    return await db.delete(nomeTabella, where: 'id = ?', whereArgs: [id]);
-  }
-
+  
   Future<List<dynamic>> getPantryCache(String dateStr) async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(

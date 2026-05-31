@@ -1,10 +1,12 @@
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path/path.dart';
 import 'package:weekbite/main.dart';
 import 'package:weekbite/screens/ingredienti_model.dart';
 import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/dispensa.dart'; 
 import 'package:flutter/material.dart';
 import 'package:weekbite/services/notification_service.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 
 final Map<String, String> categoriaM = {
   'Pasta': '🍝',
@@ -27,14 +29,25 @@ class ListaIngredientiScreen extends StatefulWidget{
 }
 
 class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{ 
+  int? currentUserId;
+
   @override
   void initState() {
     super.initState();
-    _caricaDatiDalDatabase(); 
+    _inizializzaUtenteEDati(); 
+  }
+
+  Future<void> _inizializzaUtenteEDati() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      currentUserId = prefs.getInt('userId') ?? 1; 
+    });
+
+    _caricaDatiDalDatabase();
   }
 
   Future<void> _caricaDatiDalDatabase() async {
-    final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa');
+    final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa', currentUserId!);
     
     setState(() {
       lista = listaDb;
@@ -74,7 +87,7 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                             ),
                           );
                         if (risultato != null && risultato is Ingredienti) {
-                          final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato);
+                          final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato, currentUserId!);
                           
                           setState(() {
                             int index = lista.indexWhere((item) => item.id == ingredienteSalvato.id);
@@ -138,7 +151,7 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                         if (completato == true) {
                           await DatabaseHelper.instance.deleteIngrediente('lista_spesa', listaspesa.id!);
 
-                          final nuovoInDispensa = await DatabaseHelper.instance.addIngrediente('dispensa', listaspesa);
+                          final nuovoInDispensa = await DatabaseHelper.instance.addIngrediente('dispensa', listaspesa, currentUserId!);
                           setState(() {
                             lista.removeAt(i);
                             int indexDispensa = dispensa.indexWhere((item) => item.id == nuovoInDispensa.id);

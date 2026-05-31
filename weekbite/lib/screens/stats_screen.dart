@@ -98,7 +98,7 @@ class _StatsScreenState extends State<StatsScreen> {
     
     try {
       // Peschiamo la dispensa reale dal database del team
-      final ingredientiDispensa = await DatabaseHelper.instance.getIngredienti('dispensa');
+      final ingredientiDispensa = await DatabaseHelper.instance.getIngredienti('dispensa',1);
       final DateTime oggi = DateTime.now();
 
       for (var ing in ingredientiDispensa) {

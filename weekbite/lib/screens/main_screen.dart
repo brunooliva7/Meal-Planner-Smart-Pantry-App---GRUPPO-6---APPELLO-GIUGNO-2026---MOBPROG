@@ -138,6 +138,8 @@ class _MainScreenState extends State<MainScreen> {
     String todayStr = DateTime.now().toString().split(' ')[0];
     List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr);
 
+    if (!mounted) return;
+    
     if (cached.isNotEmpty) {
       setState(() {
         viralRecipes = cached;

@@ -73,7 +73,7 @@ class _AuthScreenState extends State<AuthScreen> {
       });
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('logged_in_uid', newUserId.toString());
+      await prefs.setInt('userId', newUserId);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       print("Errore registrazione: $e");
@@ -95,8 +95,11 @@ class _AuthScreenState extends State<AuthScreen> {
       );
 
       if (userQuery.isNotEmpty) {
+        if (userQuery.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('logged_in_uid', userQuery.first['id'].toString());
+        // 🟢 userQuery.first['id'] è già un intero dal database, lo salviamo direttamente
+        await prefs.setInt('userId', userQuery.first['id'] as int);
+        }
         if (mounted) Navigator.pop(context, true);
       } else {
         _showSnackBar("Email o password errati!", isError: true);

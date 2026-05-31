@@ -5,6 +5,7 @@ import 'package:weekbite/screens/ingredienti_model.dart';
 import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/search_dispensa.dart'; 
 import 'package:weekbite/services/notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final Map<String, String> categoriaM = {
   'Pasta': '🍝',
@@ -27,19 +28,30 @@ class DispensaScreen extends StatefulWidget{
 List<Ingredienti> dispensa = [];
 
 class _DispensaScreenState extends State<DispensaScreen>{
+  int? currentUserId;
+
   @override
   void initState() {
     super.initState();
-    _caricaDatiDalDatabase(); 
+    _inizializzaUtenteEDati(); 
+  }
+  Future<void> _inizializzaUtenteEDati() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    setState(() {
+      currentUserId = prefs.getInt('userId') ?? 1; 
+    });
+
+    _caricaDispensa();
   }
 
-  Future<void> _caricaDatiDalDatabase() async {
-    final dispensaDb = await DatabaseHelper.instance.getIngredienti('dispensa');
+  Future<void> _caricaDispensa() async {
+    final dispensaDb = await DatabaseHelper.instance.getIngredienti('dispensa', currentUserId!);
     //final listaDb = await DatabaseHelper.instance.getIngredienti('lista_spesa');
     
     setState(() {
-      dispensa = dispensaDb;
       //lista = listaDb;
+      dispensa = dispensaDb;
     });
   }
 
@@ -112,7 +124,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
                         ),
                       );
                       if (risultato != null && risultato is Ingredienti) {
-                        final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('dispensa', risultato);
+                        final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('dispensa', risultato, currentUserId!);
                         if (ingredienteSalvato.id != null) {
                         await NotificationService.schedulaNotificaScadenza(
                           ingredienteSalvato.id!, 

@@ -92,10 +92,10 @@ class _BaseLayoutState extends State<BaseLayout> {
   Future<void> _checkPersistentLogin() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? uid = prefs.getString('logged_in_uid');
+      final int? uid = prefs.getInt('userId');
       
       // Se trova l'ID salvato sul telefono, l'utente entra direttamente!
-      if (uid != null && uid.isNotEmpty) {
+      if (uid != null) {
         setState(() {
           isUserLogged = true;
         });
@@ -115,6 +115,7 @@ class _BaseLayoutState extends State<BaseLayout> {
         onLogout: () {
           setState(() {
             isUserLogged = false;
+            _selectedIndex = 0;
           });
         },
       ), 
@@ -301,10 +302,10 @@ class _BaseLayoutState extends State<BaseLayout> {
             if (hasLoggedIn == true) {
               // Controlliamo se SharedPreferences si è aggiornato correttamente
               final prefs = await SharedPreferences.getInstance();
-              final uid = prefs.getString('logged_in_uid');
+              final int? uid = prefs.getInt('userId');
               
               setState(() {
-                isUserLogged = (uid != null && uid.isNotEmpty && uid != 'null');
+                isUserLogged = (uid != null);
                 _selectedIndex = 4; // Ci sposta sulla pagina del profilo appena loggato
               });
             }
