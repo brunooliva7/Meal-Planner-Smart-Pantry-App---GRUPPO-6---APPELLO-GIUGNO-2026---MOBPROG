@@ -74,14 +74,14 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                             ),
                           );
                         if (risultato != null && risultato is Ingredienti) {
-                          final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato); // o 'lista_spesa'
+                          final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('lista_spesa', risultato);
                           
                           setState(() {
                             int index = lista.indexWhere((item) => item.id == ingredienteSalvato.id);
                               if (index != -1) {
-                                lista[index] = ingredienteSalvato; // Aggiorna i pezzi a schermo
+                                lista[index] = ingredienteSalvato; 
                               } else {
-                                lista.add(ingredienteSalvato); // Aggiunge una nuova riga a schermo
+                                lista.add(ingredienteSalvato); 
                               }
                           });
                         }

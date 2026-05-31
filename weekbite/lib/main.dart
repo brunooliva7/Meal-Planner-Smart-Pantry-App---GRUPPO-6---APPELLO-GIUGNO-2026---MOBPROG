@@ -109,7 +109,7 @@ class _BaseLayoutState extends State<BaseLayout> {
     return [
       MainScreen(isLogged: isUserLogged), 
       MealPlanScreen(key: _mealPlanKey), 
-      Center(child: Text("Aggiungi", style: GoogleFonts.montserrat(fontSize: 24, fontWeight: FontWeight.w600, color: Colors.black87))), 
+      const ListaIngredientiScreen(), 
       const DispensaScreen(), 
       UserProfileScreen(
         onLogout: () {
@@ -118,7 +118,6 @@ class _BaseLayoutState extends State<BaseLayout> {
           });
         },
       ), 
-      const ListaIngredientiScreen(), 
     ];
   }
 
@@ -180,8 +179,7 @@ class _BaseLayoutState extends State<BaseLayout> {
             children: [
               _buildNavItem(Icons.home_filled,"Home", 0),
               _buildNavItem(Icons.calendar_month,"Piani", 1),
-              _buildNavItem(Icons.add_box_outlined,"Aggiungi", 2, size: 28),
-              _buildNavItem(Icons.checklist_rtl_rounded,"Lista", 5, size: 28),
+              _buildNavItem(Icons.checklist_rtl_rounded,"Lista", 2, size: 28),
               _buildNavItem(Icons.kitchen,"Dispensa", 3),
               _buildNavItem(Icons.person_outline,"Account", 4),
             ],
@@ -206,7 +204,23 @@ class _BaseLayoutState extends State<BaseLayout> {
           }
           return;
         }
-
+        if (index == 2) {
+          if (!isUserLogged) {
+            _showRegistrationPopup();
+          } else {
+            setState(() => _selectedIndex = 2);
+          }
+          return;
+        }
+        if (index == 3) {
+          if (!isUserLogged) {
+            _showRegistrationPopup();
+          } else {
+            setState(() => _selectedIndex = 3);
+          }
+          return;
+        }
+/*
         if (index == 2) {
           if (!isUserLogged) {
             _showRegistrationPopup();
@@ -273,7 +287,7 @@ class _BaseLayoutState extends State<BaseLayout> {
           }
           return;
         }
-
+*/
         if (index == 4) {
           if (!isUserLogged) {
             // Se non è loggato, lo mandiamo alla pagina di autenticazione

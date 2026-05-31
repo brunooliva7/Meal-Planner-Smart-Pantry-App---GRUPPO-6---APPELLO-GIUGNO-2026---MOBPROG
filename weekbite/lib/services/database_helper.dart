@@ -106,7 +106,9 @@ class DatabaseHelper {
         unitaMisura TEXT,
         pezzi INTEGER,
         categoria TEXT,
-        dataScadenza TEXT
+        dataScadenza TEXT,
+        fk_utente INT,
+        FOREIGN KEY(fk_utente) REFERENCES users(id) ON DELETE CASCADE        
       )
     ''');
 
@@ -118,7 +120,9 @@ class DatabaseHelper {
         unitaMisura TEXT,
         pezzi INTEGER,
         categoria TEXT,
-        dataScadenza TEXT
+        dataScadenza TEXT,
+        fk_utente INT,
+        FOREIGN KEY(fk_utente) REFERENCES utente(id) ON DELETE CASCADE        
       )
     ''');
 

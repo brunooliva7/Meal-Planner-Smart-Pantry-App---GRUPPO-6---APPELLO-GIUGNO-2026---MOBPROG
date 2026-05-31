@@ -4,6 +4,7 @@ import 'package:weekbite/main.dart';
 import 'package:weekbite/screens/ingredienti_model.dart';
 import 'package:weekbite/services/database_helper.dart'; 
 import 'package:weekbite/screens/search_dispensa.dart'; 
+import 'package:weekbite/services/notification_service.dart';
 
 final Map<String, String> categoriaM = {
   'Pasta': '🍝',
@@ -112,7 +113,14 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       );
                       if (risultato != null && risultato is Ingredienti) {
                         final ingredienteSalvato = await DatabaseHelper.instance.addIngrediente('dispensa', risultato);
-                        
+                        if (ingredienteSalvato.id != null) {
+                        await NotificationService.schedulaNotificaScadenza(
+                          ingredienteSalvato.id!, 
+                          ingredienteSalvato.nome, 
+                          ingredienteSalvato.dataScadenza
+                        );
+                        print("Notifica programmata con successo per ${ingredienteSalvato.nome}!");
+                      }
                         setState(() {
                           int index = dispensa.indexWhere((item) => item.id == ingredienteSalvato.id);
                           
