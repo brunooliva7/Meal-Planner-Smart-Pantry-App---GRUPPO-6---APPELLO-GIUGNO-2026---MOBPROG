@@ -61,7 +61,9 @@ class DatabaseHelper {
       CREATE TABLE IF NOT EXISTS favorites (
         id INTEGER PRIMARY KEY,
         title TEXT,
-        image TEXT
+        image TEXT,
+        user_id INTEGER,
+        foreign key (user_id) references user(user_id)
       )
     ''');
 
@@ -76,7 +78,9 @@ class DatabaseHelper {
         instructions TEXT,
         extendedIngredients TEXT,
         personal_notes TEXT,
-        recipe_json TEXT
+        recipe_json TEXT,
+        user_id INTEGER,
+        foreign key (user_id) references user(user_id)
       )
     ''');
 
@@ -132,7 +136,9 @@ class DatabaseHelper {
         recipe_id INTEGER,
         cache_date TEXT,
         cache_type TEXT,
-        data_json TEXT
+        data_json TEXT,
+        user_id INTEGER,
+        foreign key (user_id) references user(user_id)
       )
     ''');
 
@@ -143,7 +149,9 @@ class DatabaseHelper {
         title TEXT,
         image TEXT,
         recipe_json TEXT,
-        fetch_date TEXT
+        fetch_date TEXT,
+        user_id INTEGER,
+        foreign key (user_id) references user(user_id)
       )
     ''');
   }
@@ -203,9 +211,6 @@ class DatabaseHelper {
     return res.map((row) => json.decode(row['recipe_json'] as String)).toList();
   }
 
-  // ==========================================================
-  // ❤️ OPERAZIONI 2: I PREFERITI
-  // ==========================================================
   Future<void> addFavorite(int id, String title, String image) async {
     final db = await instance.database;
     await db.insert(

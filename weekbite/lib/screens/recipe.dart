@@ -316,7 +316,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
-  // 🔴 NUOVA FUNZIONE: Eliminazione dal database
   Future<void> _deleteRecipeAction() async {
     int recipeId = _dynamicRecipeData['id'] ?? 0;
     
