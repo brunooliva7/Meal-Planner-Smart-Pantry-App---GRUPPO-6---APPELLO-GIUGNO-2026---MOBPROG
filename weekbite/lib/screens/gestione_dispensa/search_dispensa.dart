@@ -248,6 +248,7 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
                 itemBuilder: (context, index) {
                   final ingrediente = searchResults[index];
                   return IngredientiCard(
+                    onAggiungiLista: null,
                     ingrediente: ingrediente,
                     onTap: () {
                     },

@@ -184,7 +184,8 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       MaterialPageRoute(
                         builder: (context) => ViewDispensaCategoria(
                           categoria: categoria,
-                          emoji: emoji,         
+                          emoji: emoji,       
+                          currentUserId: currentUserId,  
                         ),
                       ),
                     );
@@ -250,12 +251,14 @@ class IngredientiCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onElimina;
   final VoidCallback? onModifica;
+  final VoidCallback? onAggiungiLista;
   final Widget? leadingWidget;
 
   const IngredientiCard({required this.ingrediente, 
     required this.onTap, 
     required this.onElimina, 
     required this.onModifica,
+    required this.onAggiungiLista,
     this.leadingWidget,
     });
 
@@ -322,6 +325,12 @@ class IngredientiCard extends StatelessWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (onAggiungiLista != null)
+                          IconButton(
+                            icon: const Icon(Icons.playlist_add_check_outlined, color: Colors.orangeAccent),
+                            tooltip: "Aggiungi alla spesa",
+                            onPressed: onAggiungiLista,
+                          ),
                         if (onModifica != null)
                           IconButton(
                             icon: const Icon(Icons.edit, color: primaryGreen),
@@ -335,7 +344,7 @@ class IngredientiCard extends StatelessWidget {
                       ],
                     )
                   ),
-                  SizedBox(width: 20,)
+                  SizedBox(width: 20)
                 ],
               ),
             ),
@@ -729,11 +738,13 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
 class ViewDispensaCategoria extends StatefulWidget {
   final String categoria;
   final String emoji; 
+  final int? currentUserId;
 
   const ViewDispensaCategoria({
     Key? key, 
     required this.categoria,
     required this.emoji,
+    this.currentUserId,
   }) : super(key: key);
 
   @override
@@ -782,6 +793,37 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
                   return IngredientiCard(
                     ingrediente: ingrediente,
                     onTap: () {
+                    },
+                    onAggiungiLista: () async {
+                      if (widget.currentUserId != null) {
+                        final copiaIngrediente = Ingredienti(
+                          nome: ingrediente.nome,
+                          quantita: ingrediente.quantita,
+                          unitaMisura: ingrediente.unitaMisura,
+                          pezzi: ingrediente.pezzi,
+                          categoria: ingrediente.categoria,
+                          dataScadenza: ingrediente.dataScadenza,
+                        );
+
+                        await DatabaseHelper.instance.addIngrediente(
+                          'lista_spesa', 
+                          copiaIngrediente, 
+                          widget.currentUserId!
+                        );
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "${ingrediente.nome} aggiunto alla spesa 🛒", 
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
+                              ),
+                              backgroundColor: primaryGreen,
+                              behavior: SnackBarBehavior.floating,  
+                            ),
+                          );
+                        }
+                      }
                     },
                     onElimina: () async {
                       await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
