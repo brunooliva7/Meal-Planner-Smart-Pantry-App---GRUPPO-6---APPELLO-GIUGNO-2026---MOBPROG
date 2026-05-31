@@ -168,8 +168,8 @@ class _BaseLayoutState extends State<BaseLayout> {
       body: _getPages()[_selectedIndex],
       bottomNavigationBar: SafeArea(
         child: Container(
-          margin: const EdgeInsets.only(left: 16, right: 16, bottom: 12), 
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12), 
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), 
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), 
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(40),
@@ -192,152 +192,153 @@ class _BaseLayoutState extends State<BaseLayout> {
 
   Widget _buildNavItem(IconData icon,String label, int index, {double size = 26}) {
     bool isSelected = _selectedIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-
-      onTapDown: (details) async {
-        if (index == 1) {
-          if (!isUserLogged) {
-            _showRegistrationPopup();
-          } else {
-            setState(() => _selectedIndex = 1);
-          }
-          return;
-        }
-        if (index == 2) {
-          if (!isUserLogged) {
-            _showRegistrationPopup();
-          } else {
-            setState(() => _selectedIndex = 2);
-          }
-          return;
-        }
-        if (index == 3) {
-          if (!isUserLogged) {
-            _showRegistrationPopup();
-          } else {
-            setState(() => _selectedIndex = 3);
-          }
-          return;
-        }
-/*
-        if (index == 2) {
-          if (!isUserLogged) {
-            _showRegistrationPopup();
+        onTapDown: (details) async {
+          if (index == 1) {
+            if (!isUserLogged) {
+              _showRegistrationPopup();
+            } else {
+              setState(() => _selectedIndex = 1);
+            }
             return;
           }
-
-          final result = await showMenu(
-            context: context,
-            position: RelativeRect.fromLTRB(details.globalPosition.dx - 60, details.globalPosition.dy - 80, details.globalPosition.dx, details.globalPosition.dy),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            elevation: 8,
-            color: Colors.white,
-            items: [
-              PopupMenuItem(
-                value: 'create_planner',
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add_circle_outline, color: primaryGreen, size: 20),
-                    const SizedBox(width: 10),
-                    Text('Crea Nuovo Planner', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'create_recipe', // 🌟 NUOVA OPZIONE
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.restaurant_menu, color: primaryGreen, size: 20),
-                    const SizedBox(width: 10),
-                    Text('Crea Ricetta', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
-                  ],
-                ),
-              ),
-            ],
-          );
-
-          if (!mounted) return;
-
-          if (result == 'create_planner') {
-            // 🌟 ABBIAMO MESSO UN AWAIT: Cattura il "true" quando salvi il planner
-            final bool? rinfrescaTutto = await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
-            );
-
-            if (rinfrescaTutto == true && mounted) {
-              setState(() {
-                _selectedIndex = 1; // Sposta la visualizzazione sulla tab del planner
-              });
-              // Chiama il metodo pubblico della chiave per ricaricare il Dropdown dal DB!
-              _mealPlanKey.currentState?.forceReloadFromDb();
+          if (index == 2) {
+            if (!isUserLogged) {
+              _showRegistrationPopup();
+            } else {
+              setState(() => _selectedIndex = 2);
             }
-          }else if (result == 'create_recipe') {
-             if (!isUserLogged) {
-                // Rimanda al login se necessario, o aprilo direttamente
-             } else {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CreateRecipeScreen()),
-                );
-             }
+            return;
           }
-          return;
-        }
-*/
-        if (index == 4) {
-          if (!isUserLogged) {
-            // Se non è loggato, lo mandiamo alla pagina di autenticazione
-            final hasLoggedIn = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AuthScreen()),
+          if (index == 3) {
+            if (!isUserLogged) {
+              _showRegistrationPopup();
+            } else {
+              setState(() => _selectedIndex = 3);
+            }
+            return;
+          }
+  /*
+          if (index == 2) {
+            if (!isUserLogged) {
+              _showRegistrationPopup();
+              return;
+            }
+
+            final result = await showMenu(
+              context: context,
+              position: RelativeRect.fromLTRB(details.globalPosition.dx - 60, details.globalPosition.dy - 80, details.globalPosition.dx, details.globalPosition.dy),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              elevation: 8,
+              color: Colors.white,
+              items: [
+                PopupMenuItem(
+                  value: 'create_planner',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_circle_outline, color: primaryGreen, size: 20),
+                      const SizedBox(width: 10),
+                      Text('Crea Nuovo Planner', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'create_recipe', // 🌟 NUOVA OPZIONE
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.restaurant_menu, color: primaryGreen, size: 20),
+                      const SizedBox(width: 10),
+                      Text('Crea Ricetta', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ],
             );
 
             if (!mounted) return;
 
-            if (hasLoggedIn == true) {
-              // Controlliamo se SharedPreferences si è aggiornato correttamente
-              final prefs = await SharedPreferences.getInstance();
-              final int? uid = prefs.getInt('userId');
-              
-              setState(() {
-                isUserLogged = (uid != null);
-                _selectedIndex = 4; // Ci sposta sulla pagina del profilo appena loggato
-              });
-            }
-          } else {
-            // Se è già loggato, mostra semplicemente la scheda del profilo
-            setState(() => _selectedIndex = index);
-          }
-          return;
-        }
+            if (result == 'create_planner') {
+              // 🌟 ABBIAMO MESSO UN AWAIT: Cattura il "true" quando salvi il planner
+              final bool? rinfrescaTutto = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
+              );
 
-        setState(() => _selectedIndex = index);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min, // Fondamentale per non far esplodere la BottomBar in altezza
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon, 
-            size: size, 
-            color: isSelected ? primaryGreen : Colors.grey, // Colore dinamico
-          ),
-          const SizedBox(height: 4), // Piccolo spazio tra icona e scritta
-          Text(
-            label,
-            style: GoogleFonts.montserrat(
-              fontSize: 10, // Testo piccolino ed elegante
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected ? primaryGreen : Colors.grey,
+              if (rinfrescaTutto == true && mounted) {
+                setState(() {
+                  _selectedIndex = 1; // Sposta la visualizzazione sulla tab del planner
+                });
+                // Chiama il metodo pubblico della chiave per ricaricare il Dropdown dal DB!
+                _mealPlanKey.currentState?.forceReloadFromDb();
+              }
+            }else if (result == 'create_recipe') {
+              if (!isUserLogged) {
+                  // Rimanda al login se necessario, o aprilo direttamente
+              } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CreateRecipeScreen()),
+                  );
+              }
+            }
+            return;
+          }
+  */
+          if (index == 4) {
+            if (!isUserLogged) {
+              // Se non è loggato, lo mandiamo alla pagina di autenticazione
+              final hasLoggedIn = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AuthScreen()),
+              );
+
+              if (!mounted) return;
+
+              if (hasLoggedIn == true) {
+                // Controlliamo se SharedPreferences si è aggiornato correttamente
+                final prefs = await SharedPreferences.getInstance();
+                final int? uid = prefs.getInt('userId');
+                
+                setState(() {
+                  isUserLogged = (uid != null);
+                  _selectedIndex = 4; // Ci sposta sulla pagina del profilo appena loggato
+                });
+              }
+            } else {
+              // Se è già loggato, mostra semplicemente la scheda del profilo
+              setState(() => _selectedIndex = index);
+            }
+            return;
+          }
+
+          setState(() => _selectedIndex = index);
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Fondamentale per non far esplodere la BottomBar in altezza
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon, 
+              size: size, 
+              color: isSelected ? primaryGreen : Colors.grey, // Colore dinamico
             ),
-          ),
-        ],
-      ),
-    );
+            const SizedBox(height: 4), // Piccolo spazio tra icona e scritta
+            Text(
+              label,
+              style: GoogleFonts.montserrat(
+                fontSize: 10, // Testo piccolino ed elegante
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? primaryGreen : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      )
+  );
   }
 }
