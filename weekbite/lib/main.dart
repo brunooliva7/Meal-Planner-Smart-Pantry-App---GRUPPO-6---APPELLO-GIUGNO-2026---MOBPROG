@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/dispensa.dart';
-import 'screens/lista_spesa.dart';
+import 'screens/gestione_dispensa/dispensa.dart';
+import 'screens/gestione_dispensa/lista_spesa.dart';
 import 'screens/ricette.dart'; 
 import 'screens/main_screen.dart';
 import 'screens/mealplanner.dart'; 

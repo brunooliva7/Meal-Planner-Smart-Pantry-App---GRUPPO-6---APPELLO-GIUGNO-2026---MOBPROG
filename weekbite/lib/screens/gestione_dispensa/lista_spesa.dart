@@ -1,9 +1,9 @@
 import 'package:google_fonts/google_fonts.dart';
 import 'package:path/path.dart';
 import 'package:weekbite/main.dart';
-import 'package:weekbite/screens/ingredienti_model.dart';
+import 'package:weekbite/screens/gestione_dispensa/ingredienti_model.dart';
 import 'package:weekbite/services/database_helper.dart'; 
-import 'package:weekbite/screens/dispensa.dart'; 
+import 'package:weekbite/screens/gestione_dispensa/dispensa.dart'; 
 import 'package:flutter/material.dart';
 import 'package:weekbite/services/notification_service.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';

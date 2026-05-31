@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:weekbite/screens/recipe_model.dart';
-import 'package:weekbite/screens/ingredienti_model.dart';
+import 'package:weekbite/screens/gestione_dispensa/ingredienti_model.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();

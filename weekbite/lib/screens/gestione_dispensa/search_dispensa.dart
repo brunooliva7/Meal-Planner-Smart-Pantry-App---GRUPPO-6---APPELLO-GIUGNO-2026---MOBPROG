@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:weekbite/services/database_helper.dart'; 
-import 'package:weekbite/screens/ingredienti_model.dart'; 
-import 'package:weekbite/screens/dispensa.dart'; 
+import 'package:weekbite/screens/gestione_dispensa/ingredienti_model.dart'; 
+import 'package:weekbite/screens/gestione_dispensa/dispensa.dart'; 
 import 'package:weekbite/main.dart';
 
 class SearchDispensaScreen extends StatefulWidget {
@@ -65,20 +65,18 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
 
       if (selectedScadenza != 'Tutte le scadenze') {
         DateTime oggi = DateTime.now();
-        // Rimuoviamo le ore e i minuti, ci interessano solo i giorni!
         DateTime soloOggi = DateTime(oggi.year, oggi.month, oggi.day);
 
         parsedResults = parsedResults.where((ing) {
           DateTime dataIng = DateTime(ing.dataScadenza.year, ing.dataScadenza.month, ing.dataScadenza.day);
           
           if (selectedScadenza == 'Scaduti') {
-            return dataIng.isBefore(soloOggi); // Scadenza precedente a oggi
+            return dataIng.isBefore(soloOggi);
           } else if (selectedScadenza == 'In scadenza (7 gg)') {
-            // Tra oggi e i prossimi 7 giorni compresi
             return (dataIng.isAtSameMomentAs(soloOggi) || dataIng.isAfter(soloOggi)) && 
                    dataIng.isBefore(soloOggi.add(const Duration(days: 8)));
           } else if (selectedScadenza == 'Validi') {
-            return dataIng.isAfter(soloOggi.add(const Duration(days: 7))); // Oltre i 7 giorni
+            return dataIng.isAfter(soloOggi.add(const Duration(days: 7)));
           }
           return true;
         }).toList();
@@ -234,58 +232,56 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
           
           Expanded(
             child: isLoading
-                ? const Center(child: CircularProgressIndicator(color: primaryGreen))
-                : searchResults.isEmpty
-                    ? Center(
-                        child: Text(
-                          "Nessun ingrediente trovato\ncon questi criteri.",
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 16),
+              ? const Center(child: CircularProgressIndicator(color: primaryGreen))
+              : searchResults.isEmpty
+              ? Center(
+                child: Text(
+                  "Nessun ingrediente trovato\ncon questi criteri.",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 16),
+                ),
+              )
+              : ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: searchResults.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final ingrediente = searchResults[index];
+                  return IngredientiCard(
+                    ingrediente: ingrediente,
+                    onTap: () {
+                    },
+                    onElimina: () async {
+                      await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
+                      setState(() {
+                        searchResults.removeWhere((item) => item.id == ingrediente.id);
+                        dispensa.removeWhere((item) => item.id == ingrediente.id);
+                      });
+                    },
+                    onModifica: () async {
+                        final ingredienteModificato = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FormIngredientiScreen(ingredienteEsistente: ingrediente),
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: searchResults.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final ingrediente = searchResults[index];
-                          return IngredientiCard(
-                            ingrediente: ingrediente,
-                            onTap: () {
-                            },
-                            onElimina: () async {
-                              await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
-                              setState(() {
-                                searchResults.removeWhere((item) => item.id == ingrediente.id);
-                                dispensa.removeWhere((item) => item.id == ingrediente.id);
-                              });
-                            },
-                            onModifica: () async {
-                              final ingredienteModificato = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => FormIngredientiScreen(ingredienteEsistente: ingrediente),
-                                ),
-                              );
-
-                              if (ingredienteModificato != null && ingredienteModificato is Ingredienti) {
-                                await DatabaseHelper.instance.updateIngrediente('dispensa', ingredienteModificato);
-                                setState(() {
-                                  int indexRicerca = searchResults.indexWhere((item) => item.id == ingrediente.id);
-                                  if (indexRicerca != -1) {
-                                    searchResults[indexRicerca] = ingredienteModificato;
-                                  }
-
-                                  int indexGlobale = dispensa.indexWhere((item) => item.id == ingrediente.id);
-                                  if (indexGlobale != -1) {
-                                    dispensa[indexGlobale] = ingredienteModificato;
-                                  }
-                                });
-                              }
-                            },
-                          );
-                        },
-                      ),
+                      );
+                      if (ingredienteModificato != null && ingredienteModificato is Ingredienti) {
+                        await DatabaseHelper.instance.updateIngrediente('dispensa', ingredienteModificato);
+                        setState(() {
+                          int indexRicerca = searchResults.indexWhere((item) => item.id == ingrediente.id);
+                          if (indexRicerca != -1) {
+                            searchResults[indexRicerca] = ingredienteModificato;
+                          }
+                          int indexGlobale = dispensa.indexWhere((item) => item.id == ingrediente.id);
+                          if (indexGlobale != -1) {
+                            dispensa[indexGlobale] = ingredienteModificato;
+                          }
+                        });
+                      }
+                    },
+                  );
+                },
+              ),
           ),
         ],
       ),
