@@ -79,6 +79,7 @@ class BaseLayout extends StatefulWidget {
 class _BaseLayoutState extends State<BaseLayout> {
   int _selectedIndex = 0;
   bool isUserLogged = false; 
+  int loggedUserId = 0; // 🟢 Aggiunta SOLO questa variabile interna per tracciare l'ID per le tue pagine
 
   // Usiamo una GlobalKey per notificare e forzare il refresh di MealPlanScreen quando torniamo dal Crea Planner
   final GlobalKey<MealPlanScreenState> _mealPlanKey = GlobalKey<MealPlanScreenState>();
@@ -98,6 +99,7 @@ class _BaseLayoutState extends State<BaseLayout> {
       if (uid != null) {
         setState(() {
           isUserLogged = true;
+          loggedUserId = uid; // 🟢 Salva localmente l'ID per passarlo alla tua pagina
         });
       }
     } catch (e) {
@@ -108,13 +110,14 @@ class _BaseLayoutState extends State<BaseLayout> {
   List<Widget> _getPages() {
     return [
       MainScreen(isLogged: isUserLogged), 
-      MealPlanScreen(key: _mealPlanKey), 
+      MealPlanScreen(key: _mealPlanKey, userId: loggedUserId), // 🟢 Passa il valore alla tua pagina per non lasciarla a 0
       const ListaIngredientiScreen(), 
       const DispensaScreen(), 
       UserProfileScreen(
         onLogout: () {
           setState(() {
             isUserLogged = false;
+            loggedUserId = 0; // 🟢 Svuota al logout
             _selectedIndex = 0;
           });
         },
@@ -146,8 +149,12 @@ class _BaseLayoutState extends State<BaseLayout> {
               if (!mounted) return;
 
               if (hasLoggedIn == true) {
+                final prefs = await SharedPreferences.getInstance();
+                final int? uid = prefs.getInt('userId');
+                
                 setState(() {
                   isUserLogged = true;
+                  if (uid != null) loggedUserId = uid; // 🟢 Salva l'ID utente subito dopo il login
                   _selectedIndex = 1; 
                 });
               }
@@ -221,77 +228,8 @@ class _BaseLayoutState extends State<BaseLayout> {
             }
             return;
           }
-  /*
-          if (index == 2) {
-            if (!isUserLogged) {
-              _showRegistrationPopup();
-              return;
-            }
-
-            final result = await showMenu(
-              context: context,
-              position: RelativeRect.fromLTRB(details.globalPosition.dx - 60, details.globalPosition.dy - 80, details.globalPosition.dx, details.globalPosition.dy),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-              elevation: 8,
-              color: Colors.white,
-              items: [
-                PopupMenuItem(
-                  value: 'create_planner',
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add_circle_outline, color: primaryGreen, size: 20),
-                      const SizedBox(width: 10),
-                      Text('Crea Nuovo Planner', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'create_recipe', // 🌟 NUOVA OPZIONE
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.restaurant_menu, color: primaryGreen, size: 20),
-                      const SizedBox(width: 10),
-                      Text('Crea Ricetta', style: GoogleFonts.montserrat(fontWeight: FontWeight.w600, fontSize: 14)),
-                    ],
-                  ),
-                ),
-              ],
-            );
-
-            if (!mounted) return;
-
-            if (result == 'create_planner') {
-              // 🌟 ABBIAMO MESSO UN AWAIT: Cattura il "true" quando salvi il planner
-              final bool? rinfrescaTutto = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(builder: (_) => const CreateMealPlanScreen()),
-              );
-
-              if (rinfrescaTutto == true && mounted) {
-                setState(() {
-                  _selectedIndex = 1; // Sposta la visualizzazione sulla tab del planner
-                });
-                // Chiama il metodo pubblico della chiave per ricaricare il Dropdown dal DB!
-                _mealPlanKey.currentState?.forceReloadFromDb();
-              }
-            }else if (result == 'create_recipe') {
-              if (!isUserLogged) {
-                  // Rimanda al login se necessario, o aprilo direttamente
-              } else {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CreateRecipeScreen()),
-                  );
-              }
-            }
-            return;
-          }
-  */
           if (index == 4) {
             if (!isUserLogged) {
-              // Se non è loggato, lo mandiamo alla pagina di autenticazione
               final hasLoggedIn = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AuthScreen()),
@@ -300,17 +238,16 @@ class _BaseLayoutState extends State<BaseLayout> {
               if (!mounted) return;
 
               if (hasLoggedIn == true) {
-                // Controlliamo se SharedPreferences si è aggiornato correttamente
                 final prefs = await SharedPreferences.getInstance();
                 final int? uid = prefs.getInt('userId');
                 
                 setState(() {
                   isUserLogged = (uid != null);
-                  _selectedIndex = 4; // Ci sposta sulla pagina del profilo appena loggato
+                  if (uid != null) loggedUserId = uid; // 🟢 Aggiorna l'ID dopo il login
+                  _selectedIndex = 4; 
                 });
               }
             } else {
-              // Se è già loggato, mostra semplicemente la scheda del profilo
               setState(() => _selectedIndex = index);
             }
             return;
@@ -319,26 +256,30 @@ class _BaseLayoutState extends State<BaseLayout> {
           setState(() => _selectedIndex = index);
         },
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Fondamentale per non far esplodere la BottomBar in altezza
+          mainAxisSize: MainAxisSize.min, 
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon, 
               size: size, 
-              color: isSelected ? primaryGreen : Colors.grey, // Colore dinamico
+              color: isSelected ? primaryGreen : Colors.grey, 
             ),
-            const SizedBox(height: 4), // Piccolo spazio tra icona e scritta
-            Text(
-              label,
-              style: GoogleFonts.montserrat(
-                fontSize: 10, // Testo piccolino ed elegante
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? primaryGreen : Colors.grey,
+            const SizedBox(height: 4), 
+            Flexible( // 🟢 Protezione da overflow sul testo dei pulsanti per smartphone
+              child: Text(
+                label,
+                style: GoogleFonts.montserrat(
+                  fontSize: 10, 
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? primaryGreen : Colors.grey,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
-      )
-  );
+      ),
+    );
   }
 }
