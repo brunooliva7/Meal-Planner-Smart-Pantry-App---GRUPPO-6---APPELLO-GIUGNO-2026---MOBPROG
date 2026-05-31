@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'recipe.dart'; 
 import 'modifyplanner.dart'; 
+import 'createplanner.dart'; // 🟢 Importazione aggiunta per navigare alla creazione
 import 'package:translator/translator.dart';
 import 'recipe_model.dart'; 
 import '../services/database_helper.dart'; 
@@ -101,6 +102,19 @@ class MealPlanScreenState extends State<MealPlanScreen> {
     }
   }
 
+  // 🟢 Funzione centralizzata per navigare alla pagina di creazione in sicurezza
+  void _navigateToCreatePlanner() async {
+    final bool? rinfrescaDati = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateMealPlanScreen(userId: widget.userId),
+      ),
+    );
+    if (rinfrescaDati == true) {
+      _loadPlannerData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -116,6 +130,13 @@ class MealPlanScreenState extends State<MealPlanScreen> {
         appBar: AppBar(
           title: Text("Il tuo Meal Planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark)),
           centerTitle: true,
+          // 🟢 Aggiunto bottone di creazione nell'appbar anche quando la lista è vuota
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add_rounded, color: primaryGreen, size: 26),
+              onPressed: _navigateToCreatePlanner,
+            ),
+          ],
         ),
         body: Center(
           child: Padding(
@@ -131,9 +152,21 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "Clicca sul pulsante '+' nella barra in basso e seleziona 'Crea Planner' per comporre il tuo primo menu settimanale!",
+                  "Clicca sul pulsante '+' in alto per comporre il tuo primo menu settimanale!",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.montserrat(fontSize: 13, color: kTextMuted),
+                ),
+                const SizedBox(height: 20),
+                // 🟢 Bottone d'azione interattivo al centro se lo schermo è completamente vuoto
+                ElevatedButton.icon(
+                  onPressed: _navigateToCreatePlanner,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryGreen,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  icon: const Icon(Icons.add_rounded, color: Colors.white),
+                  label: Text("Crea Planner", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -212,6 +245,11 @@ class MealPlanScreenState extends State<MealPlanScreen> {
           ],
         ),
         actions: [
+          // 🟢 BOTTONE '+' AGGIUNTO NELL'APPBAR: Gestito dentro un Row compatto per eliminare rischi di overflow su smartphone
+          IconButton(
+            icon: const Icon(Icons.add_rounded, color: primaryGreen, size: 26),
+            onPressed: _navigateToCreatePlanner,
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
             onPressed: () {
