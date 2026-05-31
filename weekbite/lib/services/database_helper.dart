@@ -126,7 +126,7 @@ class DatabaseHelper {
         categoria TEXT,
         dataScadenza TEXT,
         fk_utente INT,
-        FOREIGN KEY(fk_utente) REFERENCES utente(id) ON DELETE CASCADE        
+        FOREIGN KEY(fk_utente) REFERENCES users(id) ON DELETE CASCADE        
       )
     ''');
 
@@ -506,7 +506,7 @@ class DatabaseHelper {
       whereArgs: [ingrediente.id],
     );
   }
-  
+
   Future<List<dynamic>> getPantryCache(String dateStr) async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(

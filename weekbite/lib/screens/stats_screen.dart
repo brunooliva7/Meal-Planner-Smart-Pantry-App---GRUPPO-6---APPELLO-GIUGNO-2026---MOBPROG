@@ -17,6 +17,7 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   bool isLoading = true;
+  int? currentUserId;
 
   // Variabili per i dati reali
   int totalePreferite = 0;
@@ -28,7 +29,23 @@ class _StatsScreenState extends State<StatsScreen> {
   @override
   void initState() {
     super.initState();
-    _calcolaStatisticheReali();
+    _inizializzaEStatistiche();
+  }
+
+  Future<void> _inizializzaEStatistiche() async {
+    final prefs = await SharedPreferences.getInstance();
+    currentUserId = prefs.getInt('userId');
+
+    // Se per qualche motivo non c'è un utente loggato, usciamo e chiudiamo il caricamento
+    if (currentUserId == null) {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+      return;
+    }
+
+    // Se l'utente c'è, procediamo con i calcoli passando l'ID
+    await _calcolaStatisticheReali();
   }
 
   // ==========================================================
@@ -98,7 +115,7 @@ class _StatsScreenState extends State<StatsScreen> {
     
     try {
       // Peschiamo la dispensa reale dal database del team
-      final ingredientiDispensa = await DatabaseHelper.instance.getIngredienti('dispensa',1);
+      final ingredientiDispensa = await DatabaseHelper.instance.getIngredienti('dispensa',currentUserId!);
       final DateTime oggi = DateTime.now();
 
       for (var ing in ingredientiDispensa) {
