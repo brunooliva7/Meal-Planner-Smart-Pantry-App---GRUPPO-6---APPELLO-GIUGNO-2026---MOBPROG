@@ -57,6 +57,8 @@ class _DispensaScreenState extends State<DispensaScreen>{
 
   @override 
   Widget build(BuildContext context){
+    int totalePezziDispensa = dispensa.fold(0, (somma, ing) => somma + ing.pezzi);
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -79,7 +81,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const SearchDispensaScreen(),
+                          builder: (context) => SearchDispensaScreen(currentUserId: currentUserId),
                         ),
                       );
                       setState(() {}); 
@@ -154,7 +156,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
           Padding( 
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Text(
-              "Ingredienti nella dispensa: ${dispensa.length}",
+              "Ingredienti nella dispensa: ${totalePezziDispensa}",
               style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color:Colors.grey),
             ),
           ),
@@ -273,13 +275,22 @@ class IngredientiCard extends StatelessWidget {
     final bool scadeAbreve = differenzaGiorni <= 3;
     
     final Color coloreData = scadeAbreve ? Colors.red : Colors.grey[600]!;
+    final Color colorePezzi = ingrediente.pezzi < 2 ? Colors.red : Colors.grey[600]!;
     final FontWeight pesoData = scadeAbreve ? FontWeight.bold : FontWeight.normal;
 
-    String infoTesto = "";
-    if(ingrediente.unitaMisura =='pz' || ingrediente.unitaMisura == 'q.b.'){
-      infoTesto = "${ingrediente.pezzi} pz • ${ingrediente.categoria} • ";
-    }else{
-      infoTesto = "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • ";
+    List<TextSpan> infoSpans = [];
+
+    if (ingrediente.unitaMisura == 'pz' || ingrediente.unitaMisura == 'q.b.') {
+      infoSpans = [
+        TextSpan(text: "${ingrediente.pezzi} pz", style: TextStyle(color: colorePezzi, fontWeight: FontWeight.bold)), // Questo può diventare rosso!
+        TextSpan(text: " • ${ingrediente.categoria} • "),
+      ];
+    } else {
+      infoSpans = [
+        TextSpan(text: "${ingrediente.quantita} ${ingrediente.unitaMisura} • "),
+        TextSpan(text: "${ingrediente.pezzi} pz", style: TextStyle(color: colorePezzi, fontWeight: FontWeight.bold)), // Questo può diventare rosso!
+        TextSpan(text: " • ${ingrediente.categoria} • "),
+      ];
     }
 
     return GestureDetector(
@@ -299,7 +310,7 @@ class IngredientiCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SizedBox(width: 12),
+            SizedBox(width:4),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +325,7 @@ class IngredientiCard extends StatelessWidget {
                       TextSpan(
                         style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13),
                         children: [
-                          TextSpan(text: infoTesto),
+                          ...infoSpans,
                           TextSpan(
                             text: "${ingrediente.dataScadenza.day.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.month.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.year}",
                             style: TextStyle(color: coloreData, fontWeight: pesoData),
@@ -344,7 +355,7 @@ class IngredientiCard extends StatelessWidget {
                       ],
                     )
                   ),
-                  SizedBox(width: 20)
+                  SizedBox(width: 10)
                 ],
               ),
             ),
@@ -758,6 +769,8 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
         .where((ing) => ing.categoria == widget.categoria)
         .toList();
 
+    int totalePezziCategoria = ingredientiFiltrati.fold(0, (somma, ing) => somma + ing.pezzi);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -778,7 +791,7 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
             Padding( 
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Text(
-                "Elementi in dispensa: ${ingredientiFiltrati.length}",
+                "Elementi in dispensa: ${totalePezziCategoria}",
                 style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
               ),
             ),
@@ -800,7 +813,7 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
                           nome: ingrediente.nome,
                           quantita: ingrediente.quantita,
                           unitaMisura: ingrediente.unitaMisura,
-                          pezzi: ingrediente.pezzi,
+                          pezzi: 1  ,
                           categoria: ingrediente.categoria,
                           dataScadenza: ingrediente.dataScadenza,
                         );

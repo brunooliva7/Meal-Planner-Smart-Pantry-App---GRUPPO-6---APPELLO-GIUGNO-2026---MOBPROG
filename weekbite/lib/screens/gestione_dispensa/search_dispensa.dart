@@ -6,7 +6,9 @@ import 'package:weekbite/screens/gestione_dispensa/dispensa.dart';
 import 'package:weekbite/main.dart';
 
 class SearchDispensaScreen extends StatefulWidget {
-  const SearchDispensaScreen({super.key});
+  final int? currentUserId; 
+
+  const SearchDispensaScreen({super.key, this.currentUserId});
 
   @override
   State<SearchDispensaScreen> createState() => _SearchDispensaScreenState();
@@ -248,7 +250,37 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
                 itemBuilder: (context, index) {
                   final ingrediente = searchResults[index];
                   return IngredientiCard(
-                    onAggiungiLista: null,
+                    onAggiungiLista: () async {
+                      if (widget.currentUserId != null) {
+                        final copiaIngrediente = Ingredienti(
+                          nome: ingrediente.nome,
+                          quantita: ingrediente.quantita,
+                          unitaMisura: ingrediente.unitaMisura,
+                          pezzi: 1  ,
+                          categoria: ingrediente.categoria,
+                          dataScadenza: ingrediente.dataScadenza,
+                        );
+
+                        await DatabaseHelper.instance.addIngrediente(
+                          'lista_spesa', 
+                          copiaIngrediente, 
+                          widget.currentUserId!
+                        );
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "${ingrediente.nome} aggiunto alla spesa 🛒", 
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
+                              ),
+                              backgroundColor: primaryGreen,
+                              behavior: SnackBarBehavior.floating,  
+                            ),
+                          );
+                        }
+                      }
+                    },
                     ingrediente: ingrediente,
                     onTap: () {
                     },
