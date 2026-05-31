@@ -79,7 +79,7 @@ class BaseLayout extends StatefulWidget {
 class _BaseLayoutState extends State<BaseLayout> {
   int _selectedIndex = 0;
   bool isUserLogged = false; 
-  int loggedUserId = 0; // 🟢 Aggiunta SOLO questa variabile interna per tracciare l'ID per le tue pagine
+  int loggedUserId = 0; // Traccia l'ID utente per le tue pagine personali
 
   // Usiamo una GlobalKey per notificare e forzare il refresh di MealPlanScreen quando torniamo dal Crea Planner
   final GlobalKey<MealPlanScreenState> _mealPlanKey = GlobalKey<MealPlanScreenState>();
@@ -99,7 +99,7 @@ class _BaseLayoutState extends State<BaseLayout> {
       if (uid != null) {
         setState(() {
           isUserLogged = true;
-          loggedUserId = uid; // 🟢 Salva localmente l'ID per passarlo alla tua pagina
+          loggedUserId = uid; // Salva localmente l'ID per passarlo alla tua pagina
         });
       }
     } catch (e) {
@@ -110,14 +110,14 @@ class _BaseLayoutState extends State<BaseLayout> {
   List<Widget> _getPages() {
     return [
       MainScreen(isLogged: isUserLogged), 
-      MealPlanScreen(key: _mealPlanKey, userId: loggedUserId), // 🟢 Passa il valore alla tua pagina per non lasciarla a 0
+      MealPlanScreen(key: _mealPlanKey, userId: loggedUserId), // Passa il valore alla tua pagina per non lasciarla a 0
       const ListaIngredientiScreen(), 
       const DispensaScreen(), 
       UserProfileScreen(
         onLogout: () {
           setState(() {
             isUserLogged = false;
-            loggedUserId = 0; // 🟢 Svuota al logout
+            loggedUserId = 0; // Svuota al logout
             _selectedIndex = 0;
           });
         },
@@ -154,7 +154,9 @@ class _BaseLayoutState extends State<BaseLayout> {
                 
                 setState(() {
                   isUserLogged = true;
-                  if (uid != null) loggedUserId = uid; // 🟢 Salva l'ID utente subito dopo il login
+                  if (uid != null) {
+                    loggedUserId = uid; // 🟢 CORRETTO: Estrae immediatamente l'ID utente per evitare il valore 0
+                  }
                   _selectedIndex = 1; 
                 });
               }
@@ -208,7 +210,13 @@ class _BaseLayoutState extends State<BaseLayout> {
             if (!isUserLogged) {
               _showRegistrationPopup();
             } else {
-              setState(() => _selectedIndex = 1);
+              // 🟢 SICUREZZA AGGIUNTIVA: Rilegge l'ID utente locale per garantire che non sia 0 al cambio di scheda
+              final prefs = await SharedPreferences.getInstance();
+              final int? uid = prefs.getInt('userId');
+              setState(() {
+                if (uid != null) loggedUserId = uid;
+                _selectedIndex = 1;
+              });
             }
             return;
           }
@@ -243,7 +251,7 @@ class _BaseLayoutState extends State<BaseLayout> {
                 
                 setState(() {
                   isUserLogged = (uid != null);
-                  if (uid != null) loggedUserId = uid; // 🟢 Aggiorna l'ID dopo il login
+                  if (uid != null) loggedUserId = uid; // Aggiorna l'ID dopo il login
                   _selectedIndex = 4; 
                 });
               }
@@ -265,7 +273,7 @@ class _BaseLayoutState extends State<BaseLayout> {
               color: isSelected ? primaryGreen : Colors.grey, 
             ),
             const SizedBox(height: 4), 
-            Flexible( // 🟢 Protezione da overflow sul testo dei pulsanti per smartphone
+            Flexible( 
               child: Text(
                 label,
                 style: GoogleFonts.montserrat(
