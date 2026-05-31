@@ -55,7 +55,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final db = await DatabaseHelper.instance.database;
 
     // 1. RECUPERO ID PREFERITI DA SQLITE
-    final List<Map<String, dynamic>> favs = await DatabaseHelper.instance.getAllFavorites();
+    final List<Map<String, dynamic>> favs = await DatabaseHelper.instance.getAllFavorites(currentUserId!);
     int counterPreferite = favs.length;
     int sommaTempo = 0;
     Map<String, int> contatoreCategorie = {};

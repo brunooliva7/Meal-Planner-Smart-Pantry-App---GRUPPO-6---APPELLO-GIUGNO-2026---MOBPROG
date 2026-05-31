@@ -7,6 +7,7 @@ import 'package:translator/translator.dart';
 import 'search_screen.dart';
 import 'recipe.dart'; 
 import '../services/database_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
   final bool isLogged;
@@ -26,6 +27,8 @@ class _MainScreenState extends State<MainScreen> {
   bool isLoadingPantry = true;
   bool isLoadingFavorites = true;
 
+  int? currentUserId;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +36,13 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _refreshAllData() async {
+
+    final prefs = await SharedPreferences.getInstance();
+    final String? uidStr = prefs.getString('logged_in_uid');
+    if (uidStr != null && uidStr.isNotEmpty) {
+      currentUserId = int.tryParse(uidStr);
+    }
+
     await _loadViralRecipes();
     if (widget.isLogged) {
       await _loadUserFavorites();
@@ -43,7 +53,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _loadUserFavorites() async {
     setState(() => isLoadingFavorites = true);
     try {
-      final allFavs = await DatabaseHelper.instance.getAllFavorites();
+      final allFavs = await DatabaseHelper.instance.getAllFavorites(currentUserId!);
       if (mounted) {
         setState(() {
           favoriteRecipes = allFavs.take(5).toList();
@@ -61,7 +71,7 @@ class _MainScreenState extends State<MainScreen> {
     String todayStr = DateTime.now().toString().split(' ')[0];
 
     try {
-      List<dynamic> cachedPantry = await DatabaseHelper.instance.getPantryCache(todayStr);
+      List<dynamic> cachedPantry = await DatabaseHelper.instance.getPantryCache(todayStr,currentUserId!);
 
       if (cachedPantry.isNotEmpty) {
         if (mounted) {
@@ -74,7 +84,7 @@ class _MainScreenState extends State<MainScreen> {
       }
 
       // 🟢 1. COLLEGAMENTO REALE AL DATABASE DEL TUO COMPAGNO
-      List<String> allMyIngredients = await DatabaseHelper.instance.getDispensaIngredients();
+      List<String> allMyIngredients = await DatabaseHelper.instance.getDispensaIngredient(currentUserId!);
 
       if (allMyIngredients.isEmpty) {
         if (mounted) setState(() => isLoadingPantry = false);
@@ -117,7 +127,7 @@ class _MainScreenState extends State<MainScreen> {
         }
 
         // Salvataggio per evitare sprechi di API oggi
-        await DatabaseHelper.instance.savePantryCache(data, todayStr);
+        await DatabaseHelper.instance.savePantryCache(data, todayStr,currentUserId!);
 
         if (mounted) {
           setState(() {
@@ -136,7 +146,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadViralRecipes() async {
     String todayStr = DateTime.now().toString().split(' ')[0];
-    List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr);
+    List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr,currentUserId!);
 
     if (!mounted) return;
     
@@ -173,7 +183,7 @@ class _MainScreenState extends State<MainScreen> {
           }
         }
 
-        await DatabaseHelper.instance.saveViralCache(fetched, date);
+        await DatabaseHelper.instance.saveViralCache(fetched, date,currentUserId!);
         if (mounted) setState(() { viralRecipes = fetched; isLoadingViral = false; });
       }
     } catch (e) {

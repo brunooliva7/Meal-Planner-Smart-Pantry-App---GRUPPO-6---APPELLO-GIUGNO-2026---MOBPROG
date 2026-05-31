@@ -27,6 +27,7 @@ class RecipeDetailScreen extends StatefulWidget {
 
 class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool isUserLogged = false; 
+  int? currentUserId; // 🟢 Variabile per conservare l'ID utente
 
   bool isDownloaded = false;
   bool isFavorite = false;
@@ -90,29 +91,39 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
       
       if (matchSuccess) {
         recipeId = _dynamicRecipeData['id']; 
-        
         if (widget.recipeData['originalTitleIt'] != null) {
           _dynamicRecipeData['title'] = widget.recipeData['originalTitleIt'];
         }
       }
-      
       setState(() => _isMatching = false); 
     }
 
+    // 🟢 ESTREZIONE E PARSING DELL'ID UTENTE
     final prefs = await SharedPreferences.getInstance();
-    final String? uid = prefs.getString('logged_in_uid');
-    bool checkLogged = uid != null && uid.isNotEmpty;
-
-    bool favStatus = await DatabaseHelper.instance.isFavorite(recipeId);
-    bool downloadStatus = await DatabaseHelper.instance.isRecipeDownloaded(recipeId);
+    final String? uidStr = prefs.getString('logged_in_uid');
     
+    if (uidStr != null && uidStr.isNotEmpty) {
+      currentUserId = int.tryParse(uidStr);
+      isUserLogged = currentUserId != null;
+    } else {
+      isUserLogged = false;
+    }
+
+    bool favStatus = false;
+    bool downloadStatus = false;
     Map<String, dynamic>? localData;
-    if (downloadStatus) {
-      localData = await DatabaseHelper.instance.getSavedRecipeWithNotes(recipeId);
+
+    // 🟢 CHIAMATE AL DATABASE CON L'ID UTENTE CORRETTO
+    if (isUserLogged && currentUserId != null) {
+      favStatus = await DatabaseHelper.instance.isFavorite(recipeId, currentUserId!);
+      downloadStatus = await DatabaseHelper.instance.isRecipeDownloaded(recipeId, currentUserId!);
+      
+      if (downloadStatus) {
+        localData = await DatabaseHelper.instance.getSavedRecipeWithNotes(recipeId, currentUserId!);
+      }
     }
 
     setState(() {
-      isUserLogged = checkLogged; 
       isFavorite = favStatus;
       isDownloaded = downloadStatus;
       
@@ -169,7 +180,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             var tIng = await translator.translate(nameToTranslate, from: 'en', to: 'it');
             ing['translatedName'] = tIng.text;
           } catch (e) {
-            print("Errore traduzione ingrediente: $e");
             ing['translatedName'] = nameToTranslate;
           }
         } else {
@@ -177,15 +187,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         }
       }
     } catch (e) {
-      print("Errore traduzione completa: $e");
       for (var ing in ingredients) {
         ing['translatedName'] = ing['name'];
       }
     }
 
-    if (mounted) {
-      setState(() => isTranslating = false);
-    }
+    if (mounted) setState(() => isTranslating = false);
   }
 
   double _getScaledAmount(double? originalAmount) {
@@ -254,7 +261,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     currentData['servings'] = servings;
     currentData['extendedIngredients'] = ingredients;
 
-    await DatabaseHelper.instance.downloadRecipe(currentData);
+    // 🟢 INVIA L'ID AL DATABASE
+    await DatabaseHelper.instance.downloadRecipe(currentData, currentUserId!);
 
     Future.delayed(const Duration(milliseconds: 1000), () {
       if (mounted) {
@@ -279,19 +287,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     updatedData['servings'] = servings;
     updatedData['extendedIngredients'] = ingredients;
 
-    await DatabaseHelper.instance.downloadRecipe(updatedData);
-    await DatabaseHelper.instance.updatePersonalNotes(recipeId, _notesController.text);
+    // 🟢 INVIA L'ID AL DATABASE
+    await DatabaseHelper.instance.downloadRecipe(updatedData, currentUserId!);
+    await DatabaseHelper.instance.updatePersonalNotes(recipeId, _notesController.text, currentUserId!);
 
-    setState(() {
-      isEditing = false;
-    });
+    setState(() => isEditing = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Tutte le modifiche sono state salvate", style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
     );
   }
 
-  // 🔴 NUOVA FUNZIONE: Dialog per eliminare la ricetta
   void _showDeleteDialog() {
     showDialog(
       context: context,
@@ -301,13 +307,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), // Chiude solo il dialog
+            onPressed: () => Navigator.pop(context), 
             child: Text("Annulla", style: GoogleFonts.montserrat(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Chiude il dialog
-              _deleteRecipeAction();  // Avvia l'eliminazione
+              Navigator.pop(context); 
+              _deleteRecipeAction();  
             },
             child: Text("Elimina", style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
@@ -320,8 +326,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     int recipeId = _dynamicRecipeData['id'] ?? 0;
     
     try {
-      // Chiama la funzione nel database helper per eliminare la ricetta
-      await DatabaseHelper.instance.deleteRecipe(recipeId);
+      // 🟢 INVIA L'ID AL DATABASE
+      await DatabaseHelper.instance.deleteRecipe(recipeId, currentUserId!);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -331,7 +337,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        // Torna alla schermata precedente (aggiornando la lista)
         Navigator.pop(context, true); 
       }
     } catch (e) {
@@ -393,12 +398,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                     child: IconButton(
                       icon: Icon(isFavorite ? Icons.favorite : Icons.favorite_border, color: isFavorite ? primaryGreen : unselectedIconColor, size: 22),
                       onPressed: () async {
-                        if (!isUserLogged) {
+                        if (!isUserLogged || currentUserId == null) {
                           _showLoginWarning(); 
                         } else {
-                          // 🔴 AGGIUNTO: Snackbar visivo per Conferma/Rimozione preferiti
                           if (isFavorite) {
-                            await DatabaseHelper.instance.removeFavorite(recipeId);
+                            // 🟢 INVIA L'ID AL DATABASE
+                            await DatabaseHelper.instance.removeFavorite(recipeId, currentUserId!);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text("Rimosso dai preferiti", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), 
@@ -408,7 +413,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                               ),
                             );
                           } else {
-                            await DatabaseHelper.instance.addFavorite(recipeId, _titleController.text, _dynamicRecipeData['image'] ?? '');
+                            // 🟢 INVIA L'ID AL DATABASE
+                            await DatabaseHelper.instance.addFavorite(recipeId, _titleController.text, _dynamicRecipeData['image'] ?? '', currentUserId!);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text("Aggiunto ai preferiti!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), 
@@ -528,7 +534,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                       : !isDownloaded
                                           ? ElevatedButton.icon(
                                               onPressed: () {
-                                                if (!isUserLogged) {
+                                                if (!isUserLogged || currentUserId == null) {
                                                   _showLoginWarning(); 
                                                 } else {
                                                   _downloadRecipeAction();
@@ -540,7 +546,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                                             )
                                           : OutlinedButton.icon(
                                               onPressed: () {
-                                                if (!isUserLogged) {
+                                                if (!isUserLogged || currentUserId == null) {
                                                   _showLoginWarning(); 
                                                 } else {
                                                   setState(() => isEditing = true); 
@@ -715,7 +721,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ),
                       
                       const SizedBox(height: 32),
-                      // 🔴 AGGIUNTO: Tasto per Eliminare la Ricetta Salvata
                       Center(
                         child: TextButton.icon(
                           onPressed: _showDeleteDialog,

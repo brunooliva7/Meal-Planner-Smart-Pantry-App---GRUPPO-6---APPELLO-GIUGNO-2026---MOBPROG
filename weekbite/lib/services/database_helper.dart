@@ -47,29 +47,31 @@ class DatabaseHelper {
       )
     ''');
   
-    await db.execute('''
+   await db.execute('''
       CREATE TABLE IF NOT EXISTS user_profiles (
         user_id INTEGER PRIMARY KEY,
         peso REAL,
         altezza REAL,
         bio TEXT,
-        image_path TEXT
+        image_path TEXT,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
     
     await db.execute('''
       CREATE TABLE IF NOT EXISTS favorites (
-        id INTEGER PRIMARY KEY,
+        id INTEGER,
         title TEXT,
         image TEXT,
         user_id INTEGER,
-        foreign key (user_id) references user(user_id)
+        PRIMARY KEY (id, user_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS saved_recipes (
-        id INTEGER PRIMARY KEY,
+        id INTEGER,
         title TEXT,
         image TEXT,
         servings INTEGER,
@@ -80,7 +82,8 @@ class DatabaseHelper {
         personal_notes TEXT,
         recipe_json TEXT,
         user_id INTEGER,
-        foreign key (user_id) references user(user_id)
+        PRIMARY KEY (id, user_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
 
@@ -138,20 +141,20 @@ class DatabaseHelper {
         cache_type TEXT,
         data_json TEXT,
         user_id INTEGER,
-        foreign key (user_id) references user(user_id)
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
 
-    // 🟢 AGGIUNTA LA TABELLA MANCANTE PER LE RICETTE VIRALI
     await db.execute('''
       CREATE TABLE IF NOT EXISTS viral_recipes_cache (
-        id INTEGER PRIMARY KEY,
+        id INTEGER,
         title TEXT,
         image TEXT,
         recipe_json TEXT,
         fetch_date TEXT,
         user_id INTEGER,
-        foreign key (user_id) references user(user_id)
+        PRIMARY KEY (id, user_id),
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
   }
@@ -180,9 +183,9 @@ class DatabaseHelper {
   // ==========================================================
   // 🛒 OPERAZIONI 1: CACHE DELLE RICETTE VIRALI
   // ==========================================================
-  Future<void> saveViralCache(List<dynamic> recipesList, String todayDate) async {
+  Future<void> saveViralCache(List<dynamic> recipesList, String todayDate, int userId) async {
     final db = await instance.database;
-    await db.delete('viral_recipes_cache');
+    await db.delete('viral_recipes_cache', where: 'user_id = ?', whereArgs: [userId]);
 
     for (var recipe in recipesList) {
       await db.insert(
@@ -193,53 +196,51 @@ class DatabaseHelper {
           'image': recipe['image'],
           'recipe_json': json.encode(recipe),
           'fetch_date': todayDate,
+          'user_id': userId,
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
   }
 
-  Future<List<dynamic>> getViralCache(String todayDate) async {
+  Future<List<dynamic>> getViralCache(String todayDate, int userId) async {
     final db = await instance.database;
     final res = await db.query(
       'viral_recipes_cache',
-      where: 'fetch_date = ?',
-      whereArgs: [todayDate],
+      where: 'fetch_date = ? AND user_id = ?',
+      whereArgs: [todayDate, userId],
     );
 
     if (res.isEmpty) return [];
     return res.map((row) => json.decode(row['recipe_json'] as String)).toList();
   }
 
-  Future<void> addFavorite(int id, String title, String image) async {
+  Future<void> addFavorite(int id, String title, String image, int userId) async {
     final db = await instance.database;
     await db.insert(
       'favorites',
-      {'id': id, 'title': title, 'image': image},
+      {'id': id, 'title': title, 'image': image, 'user_id': userId},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<void> removeFavorite(int id) async {
+  Future<void> removeFavorite(int id, int userId) async {
     final db = await instance.database;
-    await db.delete('favorites', where: 'id = ?', whereArgs: [id]);
+    await db.delete('favorites', where: 'id = ? AND user_id = ?', whereArgs: [id, userId]);
   }
 
-  Future<bool> isFavorite(int id) async {
+  Future<bool> isFavorite(int id, int userId) async {
     final db = await instance.database;
-    final res = await db.query('favorites', where: 'id = ?', whereArgs: [id]);
+    final res = await db.query('favorites', where: 'id = ? AND user_id = ?', whereArgs: [id, userId]);
     return res.isNotEmpty;
   }
 
-  Future<List<Map<String, dynamic>>> getAllFavorites() async {
+  Future<List<Map<String, dynamic>>> getAllFavorites(int userId) async {
     final db = await instance.database;
-    return await db.query('favorites');
+    return await db.query('favorites', where: 'user_id = ?', whereArgs: [userId]);
   }
 
-  // ==========================================================
-  // 💾 OPERAZIONI 3: RICETTE SALVATE LOCALI E NOTE
-  // ==========================================================
-  Future<void> downloadRecipe(Map<String, dynamic> recipeData) async {
+  Future<void> downloadRecipe(Map<String, dynamic> recipeData, int userId) async {
     final db = await instance.database;
     await db.insert(
       'saved_recipes',
@@ -249,30 +250,31 @@ class DatabaseHelper {
         'image': recipeData['image'],
         'recipe_json': json.encode(recipeData),
         'personal_notes': recipeData['personalNotes'] ?? '', 
+        'user_id': userId,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<void> updatePersonalNotes(int recipeId, String notes) async {
+  Future<void> updatePersonalNotes(int recipeId, String notes, int userId) async {
     final db = await instance.database;
     await db.update(
       'saved_recipes',
       {'personal_notes': notes},
-      where: 'id = ?',
-      whereArgs: [recipeId],
+      where: 'id = ? AND user_id = ?',
+      whereArgs: [recipeId, userId],
     );
   }
 
-  Future<bool> isRecipeDownloaded(int id) async {
+  Future<bool> isRecipeDownloaded(int id, int userId) async {
     final db = await instance.database;
-    final res = await db.query('saved_recipes', where: 'id = ?', whereArgs: [id]);
+    final res = await db.query('saved_recipes', where: 'id = ? AND user_id = ?', whereArgs: [id, userId]);
     return res.isNotEmpty;
   }
 
-  Future<Map<String, dynamic>?> getSavedRecipeWithNotes(int id) async {
+  Future<Map<String, dynamic>?> getSavedRecipeWithNotes(int id, int userId) async {
     final db = await instance.database;
-    final res = await db.query('saved_recipes', where: 'id = ?', whereArgs: [id]);
+    final res = await db.query('saved_recipes', where: 'id = ? AND user_id = ?', whereArgs: [id, userId]);
     
     if (res.isEmpty) return null;
 
@@ -283,10 +285,15 @@ class DatabaseHelper {
     return recipeData;
   }
 
+  Future<void> deleteRecipe(int id, int userId) async {
+    final db = await database;
+    await db.delete('saved_recipes', where: 'id = ? AND user_id = ?', whereArgs: [id, userId]); 
+  }
+
   // ==========================================================
   // 📅 OPERAZIONI 4: MEAL PLANNER
   // ==========================================================
-  Future<void> saveFullPlanner(
+ Future<void> saveFullPlanner(
     String name, 
     Map<String, List<String>> dayMealTypes, 
     Map<String, Map<String, List<RecipeModel>>> associatedRecipes
@@ -414,9 +421,9 @@ class DatabaseHelper {
   }
 
   // 🟢 SALVA LA CACHE DELLA DISPENSA E ALTRE FUNZIONI ESISTENTI...
-  Future<void> savePantryCache(List<dynamic> recipes, String dateStr) async {
+  Future<void> savePantryCache(List<dynamic> recipes, String dateStr, int userId) async {
     final db = await instance.database;
-    await db.delete('api_cache', where: 'cache_date != ? AND cache_type = ?', whereArgs: [dateStr, 'pantry']);
+    await db.delete('api_cache', where: 'cache_date != ? AND cache_type = ? AND user_id = ?', whereArgs: [dateStr, 'pantry', userId]);
     
     for (var recipe in recipes) {
       await db.insert('api_cache', {
@@ -424,6 +431,7 @@ class DatabaseHelper {
         'cache_date': dateStr,
         'cache_type': 'pantry', 
         'data_json': jsonEncode(recipe),
+        'user_id': userId,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
@@ -507,25 +515,14 @@ class DatabaseHelper {
     );
   }
 
-  Future<List<dynamic>> getPantryCache(String dateStr) async {
+  Future<List<dynamic>> getPantryCache(String dateStr, int userId) async {
     final db = await instance.database;
     final List<Map<String, dynamic>> maps = await db.query(
       'api_cache',
-      where: 'cache_date = ? AND cache_type = ?',
-      whereArgs: [dateStr, 'pantry'],
+      where: 'cache_date = ? AND cache_type = ? AND user_id = ?',
+      whereArgs: [dateStr, 'pantry', userId],
     );
     return maps.map((e) => jsonDecode(e['data_json'] as String)).toList();
-  }
-
-  Future<List<String>> getDispensaIngredients() async {
-    final db = await instance.database;
-    final res = await db.query('dispensa', columns: ['nome']);
-    return res.map((row) => row['nome'] as String).toList();
-  }
-
-  Future<void> deleteRecipe(int id) async {
-  final db = await database;
-  await db.delete('downloaded_recipes', where: 'id = ?', whereArgs: [id]); 
   }
 
   Future close() async {

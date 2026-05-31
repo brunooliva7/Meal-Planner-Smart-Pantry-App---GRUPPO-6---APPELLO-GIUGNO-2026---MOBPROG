@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/database_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Manteniamo le costanti grafiche definite nel tuo tema principale
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
@@ -84,6 +85,17 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
       return;
     }
 
+    final prefs = await SharedPreferences.getInstance();
+    final String? uidStr = prefs.getString('logged_in_uid');
+    
+    if (uidStr == null || uidStr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Devi essere loggato per creare una ricetta!', style: GoogleFonts.montserrat()), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    int currentUserId = int.parse(uidStr);
+
     // Costruiamo la lista degli ingredienti formattata accuratamente per il database
     List<Map<String, dynamic>> extIngredients = _ingredients.map((ing) {
       return {
@@ -110,8 +122,8 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
     };
 
     // Inserimento nei database SQLite locali strutturati coerentemente
-    await DatabaseHelper.instance.downloadRecipe(customRecipe);
-    await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath);
+    await DatabaseHelper.instance.downloadRecipe(customRecipe, currentUserId);
+    await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath, currentUserId);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
