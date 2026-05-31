@@ -114,7 +114,8 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
             ),
             SizedBox(width: 20), 
             Expanded(
-              child: ListView.separated(
+              child: !(lista.isEmpty) ?
+               ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
                 itemCount: lista.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 20),
@@ -167,6 +168,27 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                     ),
                   );
                 },
+              )
+              : Padding(
+                  padding: EdgeInsetsGeometry.symmetric(horizontal: 20),
+                  child: Center(
+                    child: Text.rich(
+                      TextSpan(
+                        style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                        children: const [
+                          TextSpan(text: "Clicca su \""),
+                            
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Icon(Icons.playlist_add_rounded, color: Colors.grey),
+                          ),
+                            
+                          TextSpan(text: "\" per aggiungere un elemento nella lista."),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ) ,
               ),
             )  
           ],

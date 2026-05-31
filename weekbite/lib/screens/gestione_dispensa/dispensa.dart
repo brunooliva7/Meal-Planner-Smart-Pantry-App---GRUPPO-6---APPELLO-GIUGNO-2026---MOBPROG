@@ -797,74 +797,96 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
             ),
             
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(left: 20, right: 20, bottom: 40),
-                itemCount: ingredientiFiltrati.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final ingrediente = ingredientiFiltrati[i];
-                  return IngredientiCard(
-                    ingrediente: ingrediente,
-                    onTap: () {
-                    },
-                    onAggiungiLista: () async {
-                      if (widget.currentUserId != null) {
-                        final copiaIngrediente = Ingredienti(
-                          nome: ingrediente.nome,
-                          quantita: ingrediente.quantita,
-                          unitaMisura: ingrediente.unitaMisura,
-                          pezzi: 1  ,
-                          categoria: ingrediente.categoria,
-                          dataScadenza: ingrediente.dataScadenza,
-                        );
-
-                        await DatabaseHelper.instance.addIngrediente(
-                          'lista_spesa', 
-                          copiaIngrediente, 
-                          widget.currentUserId!
-                        );
-                        
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                "${ingrediente.nome} aggiunto alla spesa 🛒", 
-                                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
-                              ),
-                              backgroundColor: primaryGreen,
-                              behavior: SnackBarBehavior.floating,  
-                            ),
+              child: !(ingredientiFiltrati.isEmpty) ? 
+                ListView.separated(
+                  padding: const EdgeInsets.only(left: 20, right: 20, bottom: 40),
+                  itemCount: ingredientiFiltrati.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final ingrediente = ingredientiFiltrati[i];
+                    return IngredientiCard(
+                      ingrediente: ingrediente,
+                      onTap: () {
+                      },
+                      onAggiungiLista: () async {
+                        if (widget.currentUserId != null) {
+                          final copiaIngrediente = Ingredienti(
+                            nome: ingrediente.nome,
+                            quantita: ingrediente.quantita,
+                            unitaMisura: ingrediente.unitaMisura,
+                            pezzi: 1  ,
+                            categoria: ingrediente.categoria,
+                            dataScadenza: ingrediente.dataScadenza,
                           );
-                        }
-                      }
-                    },
-                    onElimina: () async {
-                      await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
-                      setState(() {
-                        dispensa.removeWhere((item) => item.id == ingrediente.id);
-                      });
-                    },
-                    onModifica: () async {
-                      final ingredienteModificato = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FormIngredientiScreen(ingredienteEsistente: ingrediente),
-                        ),
-                      );
 
-                      if (ingredienteModificato != null) {
-                        await DatabaseHelper.instance.updateIngrediente('dispensa', ingredienteModificato);
-                        setState(() {
-                          int indexGlobale = dispensa.indexWhere((item) => item.id == ingrediente.id);
-                          if (indexGlobale != -1) {
-                            dispensa[indexGlobale] = ingredienteModificato;
+                          await DatabaseHelper.instance.addIngrediente(
+                            'lista_spesa', 
+                            copiaIngrediente, 
+                            widget.currentUserId!
+                          );
+                          
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "${ingrediente.nome} aggiunto alla spesa 🛒", 
+                                  style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
+                                ),
+                                backgroundColor: primaryGreen,
+                                behavior: SnackBarBehavior.floating,  
+                              ),
+                            );
                           }
+                        }
+                      },
+                      onElimina: () async {
+                        await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
+                        setState(() {
+                          dispensa.removeWhere((item) => item.id == ingrediente.id);
                         });
-                      }
-                    },
-                  );
-                },
-              ),
+                      },
+                      onModifica: () async {
+                        final ingredienteModificato = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => FormIngredientiScreen(ingredienteEsistente: ingrediente),
+                          ),
+                        );
+
+                        if (ingredienteModificato != null) {
+                          await DatabaseHelper.instance.updateIngrediente('dispensa', ingredienteModificato);
+                          setState(() {
+                            int indexGlobale = dispensa.indexWhere((item) => item.id == ingrediente.id);
+                            if (indexGlobale != -1) {
+                              dispensa[indexGlobale] = ingredienteModificato;
+                            }
+                          });
+                        }
+                      },
+                    );
+                  },
+                )
+                : Padding(
+                  padding: EdgeInsetsGeometry.symmetric(horizontal: 20),
+                  child: Center(
+                    child: Text.rich(
+                      TextSpan(
+                        style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
+                        children: [
+                          TextSpan(text: "Torna nella schermata precedente e clicca su \""),
+                            
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Icon(Icons.playlist_add_rounded, color: Colors.grey),
+                          ),
+                            
+                          TextSpan(text: "\" per aggiungere un prodotto in: ${widget.emoji} ${widget.categoria}."),
+                        ],
+                      ),
+                        textAlign: TextAlign.center,
+                    ), 
+                  ) ,
+                ),
             )  
           ],
         ),
