@@ -498,6 +498,11 @@ class DatabaseHelper {
     return res.map((row) => row['nome'] as String).toList();
   }
 
+  Future<void> deleteRecipe(int id) async {
+  final db = await database;
+  await db.delete('downloaded_recipes', where: 'id = ?', whereArgs: [id]); 
+  }
+
   Future close() async {
     final db = await instance.database;
     db.close();

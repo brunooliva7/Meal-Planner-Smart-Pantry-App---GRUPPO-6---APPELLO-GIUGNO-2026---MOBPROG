@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:translator/translator.dart'; 
 import '../services/database_helper.dart'; 
 import 'dart:io';
-import 'dart:convert'; // 🟢 Aggiunto per decodificare il JSON dell'API
-import 'package:http/http.dart' as http; // 🟢 Aggiunto per fare la chiamata di matching
+import 'dart:convert'; 
+import 'package:http/http.dart' as http; 
 
 const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
 const Color backgroundColor = Colors.white;
@@ -37,7 +37,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   bool isLocalLoading = false; 
   bool isTranslating = false;
   
-  // 🟢 VARIABILI PER IL MATCHING
   bool _isMatching = false;
   late Map<String, dynamic> _dynamicRecipeData; 
 
@@ -50,15 +49,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _dynamicRecipeData = Map<String, dynamic>.from(widget.recipeData); // Inizializza con i dati passati
+    _dynamicRecipeData = Map<String, dynamic>.from(widget.recipeData); 
     _initRecipeState();
   }
 
-  // 🟢 FUNZIONE DI MATCHING CON SPOONACULAR
   Future<bool> _fetchMatchingRecipe(String query) async {
     const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
     try {
-      // 1. Cerca l'ID della ricetta più somigliante (Complex Search)
       final searchUrl = 'https://api.spoonacular.com/recipes/complexSearch?query=$query&number=1&apiKey=$apiKey';
       final searchRes = await http.get(Uri.parse(searchUrl));
       
@@ -67,13 +64,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
         if (searchData['results'] != null && searchData['results'].isNotEmpty) {
           int matchedId = searchData['results'][0]['id'];
           
-          // 2. Scarica i dettagli completi della ricetta trovata
           final infoUrl = 'https://api.spoonacular.com/recipes/$matchedId/information?apiKey=$apiKey';
           final infoRes = await http.get(Uri.parse(infoUrl));
           
           if (infoRes.statusCode == 200) {
             final infoData = json.decode(infoRes.body);
-            _dynamicRecipeData = infoData; // Sostituisce i dati vuoti con quelli veri trovati
+            _dynamicRecipeData = infoData; 
             return true;
           }
         }
@@ -87,26 +83,22 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   Future<void> _initRecipeState() async {
     int recipeId = _dynamicRecipeData['id'] ?? 0;
 
-    // 🟢 CONTROLLO MATCHING: Se arriva dal Meal Planner ed è una ricetta scritta a mano (ID negativo)
     if (widget.isFromApi && recipeId < 0) {
-      setState(() => _isMatching = true); // Mostra la schermata di ricerca
+      setState(() => _isMatching = true); 
       
-      // Usa il titolo tradotto dal meal planner per cercare la ricetta in inglese
       bool matchSuccess = await _fetchMatchingRecipe(_dynamicRecipeData['title']);
       
       if (matchSuccess) {
-        recipeId = _dynamicRecipeData['id']; // Aggiorniamo con il VERO ID trovato dall'API
+        recipeId = _dynamicRecipeData['id']; 
         
-        // Ripristiniamo il titolo originale italiano inserito dall'utente nel planner!
         if (widget.recipeData['originalTitleIt'] != null) {
           _dynamicRecipeData['title'] = widget.recipeData['originalTitleIt'];
         }
       }
       
-      setState(() => _isMatching = false); // Fine ricerca
+      setState(() => _isMatching = false); 
     }
 
-    // --- CONTROLLI STANDARD ---
     final prefs = await SharedPreferences.getInstance();
     final String? uid = prefs.getString('logged_in_uid');
     bool checkLogged = uid != null && uid.isNotEmpty;
@@ -299,9 +291,57 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     );
   }
 
+  // 🔴 NUOVA FUNZIONE: Dialog per eliminare la ricetta
+  void _showDeleteDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Elimina ricetta", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)),
+        content: Text("Sei sicuro di voler eliminare questa ricetta salvata? Perderai anche le tue note.", style: GoogleFonts.montserrat()),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context), // Chiude solo il dialog
+            child: Text("Annulla", style: GoogleFonts.montserrat(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Chiude il dialog
+              _deleteRecipeAction();  // Avvia l'eliminazione
+            },
+            child: Text("Elimina", style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🔴 NUOVA FUNZIONE: Eliminazione dal database
+  Future<void> _deleteRecipeAction() async {
+    int recipeId = _dynamicRecipeData['id'] ?? 0;
+    
+    try {
+      // Chiama la funzione nel database helper per eliminare la ricetta
+      await DatabaseHelper.instance.deleteRecipe(recipeId);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Ricetta eliminata dai salvataggi", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), 
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        // Torna alla schermata precedente (aggiornando la lista)
+        Navigator.pop(context, true); 
+      }
+    } catch (e) {
+      print("Errore durante l'eliminazione: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 🟢 SCHERMATA DI CARICAMENTO DURANTE IL MATCHING
     if (_isMatching) {
       return Scaffold(
         backgroundColor: backgroundColor,
@@ -357,10 +397,27 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                         if (!isUserLogged) {
                           _showLoginWarning(); 
                         } else {
+                          // 🔴 AGGIUNTO: Snackbar visivo per Conferma/Rimozione preferiti
                           if (isFavorite) {
                             await DatabaseHelper.instance.removeFavorite(recipeId);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Rimosso dai preferiti", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), 
+                                backgroundColor: Colors.orangeAccent,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
                           } else {
                             await DatabaseHelper.instance.addFavorite(recipeId, _titleController.text, _dynamicRecipeData['image'] ?? '');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Aggiunto ai preferiti!", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), 
+                                backgroundColor: primaryGreen,
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
                           }
                           setState(() => isFavorite = !isFavorite);
                         }
@@ -655,6 +712,19 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                           fillColor: isEditing ? Colors.grey[50] : Colors.grey[100],
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: primaryGreen, width: 1.5)),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      // 🔴 AGGIUNTO: Tasto per Eliminare la Ricetta Salvata
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: _showDeleteDialog,
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          label: Text(
+                            "Elimina ricetta salvata", 
+                            style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)
+                          ),
                         ),
                       ),
                     ],
