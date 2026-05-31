@@ -22,11 +22,30 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6, 
+      version: 11, 
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: _onConfigure, 
     );
+  }
+
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 11) {
+      // Se l'utente ha una versione vecchia, pialliamo le tabelle e le ricreiamo perfette.
+      // Dalla versione 11 in poi, questo blocco non scatterà più e i dati saranno salvi.
+      await db.execute('DROP TABLE IF EXISTS users');
+      await db.execute('DROP TABLE IF EXISTS user_profiles');
+      await db.execute('DROP TABLE IF EXISTS favorites');
+      await db.execute('DROP TABLE IF EXISTS saved_recipes');
+      await db.execute('DROP TABLE IF EXISTS planners');
+      await db.execute('DROP TABLE IF EXISTS meals');
+      await db.execute('DROP TABLE IF EXISTS dispensa');
+      await db.execute('DROP TABLE IF EXISTS lista_spesa');
+      await db.execute('DROP TABLE IF EXISTS api_cache');
+      await db.execute('DROP TABLE IF EXISTS viral_recipes_cache');
+      // Ricrea sempre le tabelle dopo averle droppate
+      await _createDB(db, newVersion);
+    }
   }
 
   Future _onConfigure(Database db) async {
@@ -162,31 +181,11 @@ class DatabaseHelper {
   }
 
   // ==========================================================
-  // ⬆️ AGGIORNAMENTO DEL DATABASE (Vecchi Utenti)
-  // ==========================================================
-  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Forza la creazione di TUTTE le tabelle mancanti in modo sicuro
-    await _createDB(db, newVersion);
-    
-    // Se c'è la vecchia tabella "users" corrotta (con uid TEXT), 
-    // l'ideale in fase di sviluppo è ricrearla per allinearla al nuovo modello.
-    // Nota: in produzione servirebbe una migrazione complessa, ma qui evitiamo crash.
-    if (oldVersion < 4) {
-      try {
-        // Tentativo di aggiungere la colonna nickname se mancante nei vecchi DB
-        await db.execute("ALTER TABLE users ADD COLUMN nickname TEXT;");
-      } catch (e) {
-        // Ignora l'errore se la colonna esiste già o la tabella ha uno schema troppo diverso
-        print("Migrazione colonna nickname: ${e.toString()}");
-      }
-    }
-  }
-
-  // ==========================================================
   // 🛒 OPERAZIONI 1: CACHE DELLE RICETTE VIRALI
   // ==========================================================
   Future<void> saveViralCache(List<dynamic> recipesList, String todayDate, int userId) async {
     final db = await instance.database;
+    // Usa userId=0 come sentinel per utenti guest — è intenzionale
     await db.delete('viral_recipes_cache', where: 'user_id = ?', whereArgs: [userId]);
 
     for (var recipe in recipesList) {
@@ -409,11 +408,11 @@ class DatabaseHelper {
   // ==========================================================
   
   // 🟢 FUNZIONE ALLINEATA: Ora utilizza i campi corretti della tabella `users` (id, name, email, password, nickname)
-  Future<void> saveOrUpdateUser(Map<String, dynamic> userData) async {
+ Future<int> saveOrUpdateUser(Map<String, dynamic> userData) async {
     final db = await instance.database;
     
-    // Inseriamo i dati rispettando lo schema corretto definito in _createDB
-    await db.insert(
+    // Ritorna l'ID generato così la schermata di Login può salvarlo!
+    return await db.insert(
       'users',
       {
         'name': userData['name'] ?? 'Utente',

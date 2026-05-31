@@ -97,7 +97,6 @@ class _AuthScreenState extends State<AuthScreen> {
       if (userQuery.isNotEmpty) {
         if (userQuery.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
-        // 🟢 userQuery.first['id'] è già un intero dal database, lo salviamo direttamente
         await prefs.setInt('userId', userQuery.first['id'] as int);
         }
         if (mounted) Navigator.pop(context, true);

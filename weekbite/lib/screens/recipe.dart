@@ -100,11 +100,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
 
     // 🟢 ESTREZIONE E PARSING DELL'ID UTENTE
     final prefs = await SharedPreferences.getInstance();
-    final String? uidStr = prefs.getString('logged_in_uid');
+    final int? uid = prefs.getInt('userId');
     
-    if (uidStr != null && uidStr.isNotEmpty) {
-      currentUserId = int.tryParse(uidStr);
-      isUserLogged = currentUserId != null;
+    if (uid != null && uid > 0) {
+      currentUserId = uid;
+      isUserLogged = true;
     } else {
       isUserLogged = false;
     }
@@ -328,8 +328,14 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
     try {
       // 🟢 INVIA L'ID AL DATABASE
       await DatabaseHelper.instance.deleteRecipe(recipeId, currentUserId!);
+      await DatabaseHelper.instance.removeFavorite(recipeId, currentUserId!);
       
       if (mounted) {
+        setState(() {
+          isDownloaded = false;
+          isFavorite = false;
+          isEditing = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Ricetta eliminata dai salvataggi", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)), 
@@ -721,16 +727,17 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
                       ),
                       
                       const SizedBox(height: 32),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: _showDeleteDialog,
-                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                          label: Text(
-                            "Elimina ricetta salvata", 
-                            style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)
+                      if (isEditing)
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: _showDeleteDialog,
+                            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            label: Text(
+                              "Elimina ricetta salvata", 
+                              style: GoogleFonts.montserrat(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 16)
+                            ),
                           ),
                         ),
-                      ),
                     ],
                     const SizedBox(height: 40),
                   ],
