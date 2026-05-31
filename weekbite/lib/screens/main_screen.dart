@@ -8,6 +8,8 @@ import 'search_screen.dart';
 import 'recipe.dart'; 
 import '../services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// 🟢 AGGIUNTO: Import per la schermata di creazione ricetta
+import 'create_recipe_screen.dart'; 
 
 class MainScreen extends StatefulWidget {
   final bool isLogged;
@@ -83,28 +85,23 @@ class _MainScreenState extends State<MainScreen> {
         return;
       }
 
-      // 🟢 1. COLLEGAMENTO REALE AL DATABASE DEL TUO COMPAGNO
       List<String> allMyIngredients = await DatabaseHelper.instance.getDispensaIngredient(currentUserId!);
 
       if (allMyIngredients.isEmpty) {
         if (mounted) setState(() => isLoadingPantry = false);
-        return; // La dispensa è vuota, mostriamo "Ancora nulla qui..."
+        return; 
       }
 
-      // 🟢 2. OTTIMIZZAZIONE: Prendiamo solo i primi 5 ingredienti!
-      // Se mandiamo 50 ingredienti all'API, non troverà ricette e bloccherà il traduttore.
       List<String> myIngredientsItalian = allMyIngredients.take(5).toList();
 
       final translator = GoogleTranslator();
       List<String> englishIngredients = [];
       
-      // Traduzione in Inglese
       for (String ing in myIngredientsItalian) {
         var t = await translator.translate(ing, from: 'it', to: 'en');
         englishIngredients.add(t.text.toLowerCase());
       }
 
-      // Chiamata API Spoonacular
       final ingredientsQuery = englishIngredients.join(',+');
       const apiKey = 'd94d3ad2ddaa4b9a8e6ae55f4e87b174';
       final url = 'https://api.spoonacular.com/recipes/findByIngredients?ingredients=$ingredientsQuery&number=5&apiKey=$apiKey';
@@ -113,7 +110,6 @@ class _MainScreenState extends State<MainScreen> {
       if (response.statusCode == 200) {
         final List data = json.decode(response.body);
         
-        // Traduzione dei Titoli in Italiano
         for (var recipe in data) {
           String originalTitle = recipe['title'] ?? '';
           if (originalTitle.isNotEmpty) {
@@ -126,7 +122,6 @@ class _MainScreenState extends State<MainScreen> {
           }
         }
 
-        // Salvataggio per evitare sprechi di API oggi
         await DatabaseHelper.instance.savePantryCache(data, todayStr,currentUserId!);
 
         if (mounted) {
@@ -146,7 +141,7 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadViralRecipes() async {
     String todayStr = DateTime.now().toString().split(' ')[0];
-    List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr,currentUserId!);
+    List<dynamic> cached = await DatabaseHelper.instance.getViralCache(todayStr,currentUserId ?? 0);
 
     if (!mounted) return;
     
@@ -183,7 +178,7 @@ class _MainScreenState extends State<MainScreen> {
           }
         }
 
-        await DatabaseHelper.instance.saveViralCache(fetched, date,currentUserId!);
+        await DatabaseHelper.instance.saveViralCache(fetched, date,currentUserId ?? 0);
         if (mounted) setState(() { viralRecipes = fetched; isLoadingViral = false; });
       }
     } catch (e) {
@@ -255,26 +250,67 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // 🟢 AGGIUNTO: Barra di ricerca dinamica col pulsante "Aggiungi Ricetta"
   Widget _buildSearchBar(BuildContext context, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(30),
+      child: Row(
+        children: [
+          // Expanded stringe la barra in modo elastico per fare spazio al pulsante
+          Expanded(
+            child: InkWell(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchScreen())),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search, color: theme.colorScheme.primary, size: 22),
+                    const SizedBox(width: 12),
+                    // Expanded sul testo per evitare l'errore "RenderFlex overflowed"
+                    Expanded(
+                      child: Text(
+                        'Cerca ricette o ingredienti...', 
+                        style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          child: Row(
-            children: [
-              Icon(Icons.search, color: theme.colorScheme.primary, size: 22),
-              const SizedBox(width: 12),
-              Text('Cerca ricette o ingredienti...', 
-                style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 15)),
-            ],
-          ),
-        ),
+          
+          // Se l'utente è loggato, mostra il pulsante col "+"
+          if (widget.isLogged) ...[
+            const SizedBox(width: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: theme.colorScheme.primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))
+                ]
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.add, color: Colors.white, size: 24),
+                tooltip: 'Aggiungi ricetta personale',
+                onPressed: () {
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (_) => const CreateRecipeScreen())
+                  ).then((_) {
+                    // Quando torni indietro dalla creazione ricetta, aggiorna la dashboard!
+                    _refreshAllData();
+                  });
+                },
+              ),
+            ),
+          ]
+        ],
       ),
     );
   }
