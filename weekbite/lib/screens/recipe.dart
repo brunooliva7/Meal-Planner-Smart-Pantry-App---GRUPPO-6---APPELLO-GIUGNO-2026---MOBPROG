@@ -6,10 +6,7 @@ import '../services/database_helper.dart';
 import 'dart:io';
 import 'dart:convert'; 
 import 'package:http/http.dart' as http; 
-
-const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
-const Color backgroundColor = Colors.white;
-const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
+import 'package:weekbite/main.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final Map<String, dynamic> recipeData; 

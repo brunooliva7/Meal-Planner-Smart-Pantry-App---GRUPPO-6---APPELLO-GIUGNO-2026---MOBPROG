@@ -6,10 +6,7 @@ import 'package:translator/translator.dart';
 import 'recipe.dart'; 
 import '../services/database_helper.dart'; // 📂 Importazione del Database
 import 'dart:io';
-
-const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
-const Color backgroundColor = Colors.white;
-const Color unselectedIconColor = Color.fromARGB(255, 158, 158, 158);
+import 'package:weekbite/main.dart';
 
 class SearchScreen extends StatefulWidget {
   final bool isLogged; 
@@ -257,29 +254,38 @@ class _SearchScreenState extends State<SearchScreen> {
           // ==========================================================
           Padding(
             padding: const EdgeInsets.all(16.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color.fromARGB(255, 245, 245, 245),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const[
+                  BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
+                ],
+              ),
             child: TextField(
               controller: _searchController,
               onSubmitted: (_) => _performSearch(),
               style: GoogleFonts.montserrat(fontSize: 16),
-              decoration: InputDecoration(
-                hintText: searchLocal ? "Cerca tra le tue ricette salvate..." : "Cerca ricette o ingredienti...",
-                hintStyle: GoogleFonts.montserrat(color: Colors.grey),
-                filled: true,
-                fillColor: Colors.grey[100],
-                prefixIcon: const Icon(Icons.search, color: primaryGreen),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () {
+                decoration: InputDecoration(
+                  hintText: "Cerca un ingrediente (es. Pollo)...",
+                  hintStyle: GoogleFonts.montserrat(color: Colors.grey),
+                  
+                  border: InputBorder.none, 
+                  
+                  prefixIcon: const Icon(Icons.search, color: primaryGreen),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () {
                     _searchController.clear();
                     _performSearch();
                   },
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                //border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
               ),
             ),
           ),
-
+          ),
           // ==========================================================
           // FILTRI (Nascondiamo i filtri API se la ricerca è Locale)
           // ==========================================================

@@ -8,7 +8,7 @@ import 'search_screen.dart';
 import 'recipe.dart'; 
 import '../services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// 🟢 AGGIUNTO: Import per la schermata di creazione ricetta
+import 'package:weekbite/main.dart';
 import 'create_recipe_screen.dart'; 
 
 class MainScreen extends StatefulWidget {
@@ -270,32 +270,38 @@ class _MainScreenState extends State<MainScreen> {
       child: Row(
         children: [
           Expanded(
-            child: InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(isLogged: widget.isLogged, userId: currentUserId ?? 0))),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, color: theme.colorScheme.primary, size: 22),
-                    const SizedBox(width: 12),
-                    // Expanded sul testo per evitare l'errore "RenderFlex overflowed"
-                    Expanded(
-                      child: Text(
-                        'Cerca ricette o ingredienti...', 
-                        style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 14),
-                        overflow: TextOverflow.ellipsis,
+                  child: GestureDetector(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>  SearchScreen(isLogged: widget.isLogged, userId: currentUserId ?? 0),
+                        ),
+                      );
+                      setState(() {}); 
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: const[
+                          BoxShadow(color: Color.fromARGB(31, 0, 0, 0), blurRadius: 4,offset: Offset(0,2))
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search, color:primaryGreen, size:20),
+                          const SizedBox(width: 12), 
+                          Text(
+                            'Cerca ricette o ingredienti...',
+                            style: GoogleFonts.montserrat(color: Colors.grey, fontSize: 15)
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          
           if (widget.isLogged) ...[
             const SizedBox(width: 12),
             Container(

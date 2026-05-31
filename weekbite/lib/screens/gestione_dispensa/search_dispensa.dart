@@ -127,7 +127,7 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Container(
+            child: Container( 
               decoration: BoxDecoration(
                 color: const Color.fromARGB(255, 245, 245, 245),
                 borderRadius: BorderRadius.circular(30),

@@ -423,7 +423,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _buildTextFormField(_altezzaController, "Altezza (cm)", Icons.straighten, (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Errore' : null, isNum: true)),
+              Expanded(child: _buildTextFormField(_altezzaController, "Altezza (cm)", Icons.straighten, (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Errore, inserire .' : null, isNum: true)),
               const SizedBox(width: 12),
               Expanded(child: _buildTextFormField(_pesoController, "Peso (kg)", Icons.scale, (v) => v != null && v.isNotEmpty && double.tryParse(v) == null ? 'Errore' : null, isNum: true)),
             ],

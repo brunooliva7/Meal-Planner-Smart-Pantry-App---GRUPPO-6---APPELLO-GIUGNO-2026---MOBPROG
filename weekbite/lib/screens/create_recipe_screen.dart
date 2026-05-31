@@ -4,10 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-// Manteniamo le costanti grafiche definite nel tuo tema principale
-const Color primaryGreen = Color.fromARGB(255, 75, 187, 120);
-const Color backgroundColor = Color.fromARGB(255, 241, 241, 241);
+import 'package:weekbite/main.dart';
 
 class IngredientItem {
   TextEditingController amountCtrl = TextEditingController(text: '1');
