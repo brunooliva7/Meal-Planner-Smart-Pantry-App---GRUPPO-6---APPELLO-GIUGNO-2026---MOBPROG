@@ -12,9 +12,9 @@ const Color kBorderColor = Color(0xFFF3F4F6);
 const Color kBackgroundClear = Color(0xFFF9F9FB); 
 
 class CreateMealPlanScreen extends StatefulWidget {
-  final int userId; // 🟢 Riceve l'ID utente per allinearsi alle query del database
+  final int userId; 
 
-  const CreateMealPlanScreen({super.key, this.userId = 0}); // 🟢 Fallback a 0 per sicurezza
+  const CreateMealPlanScreen({super.key, this.userId = 0}); 
   @override
   State<CreateMealPlanScreen> createState() => _CreateMealPlanScreenState();
 }
@@ -170,7 +170,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   void _showAddPiatoDialog(String mealType) async {
     List<Map<String, dynamic>> savedRecipesDB = [];
     try {
-      // 🟢 ALLINEAMENTO DB: Passa il widget.userId richiesto dal nuovo schema
+      
       savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(widget.userId); 
     } catch (_) {}
 
@@ -288,14 +288,14 @@ Future<void> _savePlannerToDatabase() async {
     }
 
     try {
-      // 🟢 Modificato: Controlla i duplicati solo tra i planner del proprio utente
+      
       List<String> existingNames = await DatabaseHelper.instance.getAllPlannerNames(widget.userId);
       if (existingNames.any((n) => n.toLowerCase() == name.toLowerCase())) {
         _showErrorDialog("Nome Duplicato", "Esiste già un planner chiamato '$name'.");
         return;
       }
 
-      // 🟢 Modificato: Passa widget.userId come ultimo parametro
+      
       await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes, widget.userId);
 
       if (!mounted) return;

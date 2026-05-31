@@ -123,6 +123,7 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
                   return IngredientiCard(
                     ingrediente: listaspesa,
                     onTap: () { /* ... */ },
+                    onAggiungiLista: null,
                     onModifica: () async {
                       final ingredienteModificato = await Navigator.push(
                         context,

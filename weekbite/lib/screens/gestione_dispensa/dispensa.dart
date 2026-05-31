@@ -57,6 +57,8 @@ class _DispensaScreenState extends State<DispensaScreen>{
 
   @override 
   Widget build(BuildContext context){
+    int totalePezziDispensa = dispensa.fold(0, (somma, ing) => somma + ing.pezzi);
+
     return SafeArea(
       bottom: false,
       child: Column(
@@ -79,7 +81,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const SearchDispensaScreen(),
+                          builder: (context) => SearchDispensaScreen(currentUserId: currentUserId),
                         ),
                       );
                       setState(() {}); 
@@ -154,7 +156,7 @@ class _DispensaScreenState extends State<DispensaScreen>{
           Padding( 
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Text(
-              "Ingredienti nella dispensa: ${dispensa.length}",
+              "Ingredienti nella dispensa: ${totalePezziDispensa}",
               style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color:Colors.grey),
             ),
           ),
@@ -184,7 +186,8 @@ class _DispensaScreenState extends State<DispensaScreen>{
                       MaterialPageRoute(
                         builder: (context) => ViewDispensaCategoria(
                           categoria: categoria,
-                          emoji: emoji,         
+                          emoji: emoji,       
+                          currentUserId: currentUserId,  
                         ),
                       ),
                     );
@@ -250,12 +253,14 @@ class IngredientiCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onElimina;
   final VoidCallback? onModifica;
+  final VoidCallback? onAggiungiLista;
   final Widget? leadingWidget;
 
   const IngredientiCard({required this.ingrediente, 
     required this.onTap, 
     required this.onElimina, 
     required this.onModifica,
+    required this.onAggiungiLista,
     this.leadingWidget,
     });
 
@@ -270,13 +275,22 @@ class IngredientiCard extends StatelessWidget {
     final bool scadeAbreve = differenzaGiorni <= 3;
     
     final Color coloreData = scadeAbreve ? Colors.red : Colors.grey[600]!;
+    final Color colorePezzi = ingrediente.pezzi < 2 ? Colors.red : Colors.grey[600]!;
     final FontWeight pesoData = scadeAbreve ? FontWeight.bold : FontWeight.normal;
 
-    String infoTesto = "";
-    if(ingrediente.unitaMisura =='pz' || ingrediente.unitaMisura == 'q.b.'){
-      infoTesto = "${ingrediente.pezzi} pz • ${ingrediente.categoria} • ";
-    }else{
-      infoTesto = "${ingrediente.quantita} ${ingrediente.unitaMisura} • ${ingrediente.pezzi} pz • ${ingrediente.categoria} • ";
+    List<TextSpan> infoSpans = [];
+
+    if (ingrediente.unitaMisura == 'pz' || ingrediente.unitaMisura == 'q.b.') {
+      infoSpans = [
+        TextSpan(text: "${ingrediente.pezzi} pz", style: TextStyle(color: colorePezzi, fontWeight: FontWeight.bold)), // Questo può diventare rosso!
+        TextSpan(text: " • ${ingrediente.categoria} • "),
+      ];
+    } else {
+      infoSpans = [
+        TextSpan(text: "${ingrediente.quantita} ${ingrediente.unitaMisura} • "),
+        TextSpan(text: "${ingrediente.pezzi} pz", style: TextStyle(color: colorePezzi, fontWeight: FontWeight.bold)), // Questo può diventare rosso!
+        TextSpan(text: " • ${ingrediente.categoria} • "),
+      ];
     }
 
     return GestureDetector(
@@ -296,7 +310,7 @@ class IngredientiCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SizedBox(width: 12),
+            SizedBox(width:4),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +325,7 @@ class IngredientiCard extends StatelessWidget {
                       TextSpan(
                         style: GoogleFonts.montserrat(color: Colors.grey[600], fontSize: 13),
                         children: [
-                          TextSpan(text: infoTesto),
+                          ...infoSpans,
                           TextSpan(
                             text: "${ingrediente.dataScadenza.day.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.month.toString().padLeft(2, '0')}/${ingrediente.dataScadenza.year}",
                             style: TextStyle(color: coloreData, fontWeight: pesoData),
@@ -322,6 +336,12 @@ class IngredientiCard extends StatelessWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (onAggiungiLista != null)
+                          IconButton(
+                            icon: const Icon(Icons.playlist_add_check_outlined, color: Colors.orangeAccent),
+                            tooltip: "Aggiungi alla spesa",
+                            onPressed: onAggiungiLista,
+                          ),
                         if (onModifica != null)
                           IconButton(
                             icon: const Icon(Icons.edit, color: primaryGreen),
@@ -335,7 +355,7 @@ class IngredientiCard extends StatelessWidget {
                       ],
                     )
                   ),
-                  SizedBox(width: 20,)
+                  SizedBox(width: 10)
                 ],
               ),
             ),
@@ -729,11 +749,13 @@ class _FormIngredientiScreen extends State<FormIngredientiScreen>{
 class ViewDispensaCategoria extends StatefulWidget {
   final String categoria;
   final String emoji; 
+  final int? currentUserId;
 
   const ViewDispensaCategoria({
     Key? key, 
     required this.categoria,
     required this.emoji,
+    this.currentUserId,
   }) : super(key: key);
 
   @override
@@ -746,6 +768,8 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
     final ingredientiFiltrati = dispensa
         .where((ing) => ing.categoria == widget.categoria)
         .toList();
+
+    int totalePezziCategoria = ingredientiFiltrati.fold(0, (somma, ing) => somma + ing.pezzi);
 
     return Scaffold(
       appBar: AppBar(
@@ -767,7 +791,7 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
             Padding( 
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               child: Text(
-                "Elementi in dispensa: ${ingredientiFiltrati.length}",
+                "Elementi in dispensa: ${totalePezziCategoria}",
                 style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
               ),
             ),
@@ -782,6 +806,37 @@ class _ViewDispensaCategoriaState extends State<ViewDispensaCategoria> {
                   return IngredientiCard(
                     ingrediente: ingrediente,
                     onTap: () {
+                    },
+                    onAggiungiLista: () async {
+                      if (widget.currentUserId != null) {
+                        final copiaIngrediente = Ingredienti(
+                          nome: ingrediente.nome,
+                          quantita: ingrediente.quantita,
+                          unitaMisura: ingrediente.unitaMisura,
+                          pezzi: 1  ,
+                          categoria: ingrediente.categoria,
+                          dataScadenza: ingrediente.dataScadenza,
+                        );
+
+                        await DatabaseHelper.instance.addIngrediente(
+                          'lista_spesa', 
+                          copiaIngrediente, 
+                          widget.currentUserId!
+                        );
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                "${ingrediente.nome} aggiunto alla spesa 🛒", 
+                                style: GoogleFonts.montserrat(fontWeight: FontWeight.bold)
+                              ),
+                              backgroundColor: primaryGreen,
+                              behavior: SnackBarBehavior.floating,  
+                            ),
+                          );
+                        }
+                      }
                     },
                     onElimina: () async {
                       await DatabaseHelper.instance.deleteIngrediente('dispensa', ingrediente.id!);
