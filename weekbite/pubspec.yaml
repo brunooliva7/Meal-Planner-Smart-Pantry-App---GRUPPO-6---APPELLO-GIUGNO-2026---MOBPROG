@@ -35,7 +35,6 @@ dependencies:
   sqflite: ^2.3.0
   path: ^1.9.0
   google_sign_in: ^6.2.1
-  
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -44,6 +43,7 @@ dependencies:
   shared_preferences: ^2.5.5
   translator: ^1.0.4+1
   image_picker: ^1.2.2
+  flutter_native_splash: ^2.4.7
 
 dev_dependencies:
   flutter_test:
@@ -58,9 +58,18 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
-    android: "launcher_icon"
-    ios: true
-    image_path: "assets/images/logo_wB.jpg"
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo_wB.jpg"
+
+flutter_native_splash:
+  color: "#4BBB78"
+  image: assets/images/logo_wB.png
+
+  android_12:
+    color: "#4BBB78"
+    color_dark: "#4BBB78" # 🟢 Forza il verde anche qui
+    image: "assets/images/logo_wB.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/gestione_dispensa/dispensa.dart';
 import 'screens/gestione_dispensa/lista_spesa.dart';
-import 'screens/ricette.dart'; 
+import 'screens/ricette.dart';
 import 'screens/main_screen.dart';
-import 'screens/mealplanner.dart'; 
+import 'screens/mealplanner.dart';
 import 'screens/createplanner.dart';
 import 'screens/user_profile_screen.dart';
-import 'screens/auth_screen.dart'; 
+import 'screens/auth_screen.dart';
 import 'screens/create_recipe_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:weekbite/services/notification_service.dart'; 
-
+import 'package:weekbite/services/notification_service.dart';
 
 // ==========================================================
 // ⚙️ CONFIGURAZIONI GLOBALI
@@ -24,7 +23,7 @@ const String appTitle = 'weekBite';
 const double appBarTitleSize = 22.0;
 const double navBarTextSize = 12.0;
 
-const Color kTextDark = Color(0xFF1A1A2E); 
+const Color kTextDark = Color(0xFF1A1A2E);
 const Color kTextMuted = Color(0xFF9CA3AF);
 
 void main() async {
@@ -40,7 +39,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: appTitle,
-      debugShowCheckedModeBanner: false, 
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: primaryGreen,
@@ -73,16 +72,16 @@ class BaseLayout extends StatefulWidget {
 
   @override
   State<BaseLayout> createState() => _BaseLayoutState();
-  
 }
 
 class _BaseLayoutState extends State<BaseLayout> {
   int _selectedIndex = 0;
-  bool isUserLogged = false; 
+  bool isUserLogged = false;
   int loggedUserId = 0; // Traccia l'ID utente per le tue pagine personali
 
   // Usiamo una GlobalKey per notificare e forzare il refresh di MealPlanScreen quando torniamo dal Crea Planner
-  final GlobalKey<MealPlanScreenState> _mealPlanKey = GlobalKey<MealPlanScreenState>();
+  final GlobalKey<MealPlanScreenState> _mealPlanKey =
+      GlobalKey<MealPlanScreenState>();
 
   @override
   void initState() {
@@ -94,25 +93,29 @@ class _BaseLayoutState extends State<BaseLayout> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final int? uid = prefs.getInt('userId');
-      
+
       // Se trova l'ID salvato sul telefono, l'utente entra direttamente!
       if (uid != null) {
         setState(() {
           isUserLogged = true;
-          loggedUserId = uid; // Salva localmente l'ID per passarlo alla tua pagina
+          loggedUserId =
+              uid; // Salva localmente l'ID per passarlo alla tua pagina
         });
       }
     } catch (e) {
       print("Errore caricamento sessione SharedPreferences: $e");
     }
   }
-  
+
   List<Widget> _getPages() {
     return [
-      MainScreen(isLogged: isUserLogged), 
-      MealPlanScreen(key: _mealPlanKey, userId: loggedUserId), // Passa il valore alla tua pagina per non lasciarla a 0
-      const ListaIngredientiScreen(), 
-      const DispensaScreen(), 
+      MainScreen(isLogged: isUserLogged),
+      MealPlanScreen(
+        key: _mealPlanKey,
+        userId: loggedUserId,
+      ), // Passa il valore alla tua pagina per non lasciarla a 0
+      const ListaIngredientiScreen(),
+      const DispensaScreen(),
       UserProfileScreen(
         onLogout: () {
           setState(() {
@@ -121,7 +124,7 @@ class _BaseLayoutState extends State<BaseLayout> {
             _selectedIndex = 0;
           });
         },
-      ), 
+      ),
     ];
   }
 
@@ -130,42 +133,70 @@ class _BaseLayoutState extends State<BaseLayout> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text("Accesso Richiesto", style: GoogleFonts.montserrat(fontWeight: FontWeight.bold, color: kTextDark)),
-        content: Text("Per poter pianificare i tuoi pasti e utilizzare il Meal Planner devi far parte della community di weekBite!", style: GoogleFonts.montserrat(fontSize: 14)),
+        title: Text(
+          "Accesso Richiesto",
+          style: GoogleFonts.montserrat(
+            fontWeight: FontWeight.bold,
+            color: kTextDark,
+          ),
+        ),
+        content: Text(
+          "Per poter pianificare i tuoi pasti e utilizzare il Meal Planner devi far parte della community di weekBite!",
+          style: GoogleFonts.montserrat(fontSize: 14),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text("Annulla", style: GoogleFonts.montserrat(color: kTextMuted, fontWeight: FontWeight.bold)),
+            child: Text(
+              "Annulla",
+              style: GoogleFonts.montserrat(
+                color: kTextMuted,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: primaryGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryGreen,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
               final hasLoggedIn = await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AuthScreen()),
               );
-              
-              if (hasLoggedIn == true) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.reload();
-                  final int? uid = prefs.getInt('userId');
-                  
-                  setState(() {
-                    isUserLogged = (uid != null && uid > 0);
-                    loggedUserId = uid ?? 0;
-                  });
 
-                  // 🟢 LA SVOLTA: Invece di limitarti a cambiare indice, 
-                  // assicurati che il Navigator sappia che deve resettare la pagina
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => MainScreen(isLogged: true)),
-                  );
-                }
+              if (hasLoggedIn == true) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.reload();
+                final int? uid = prefs.getInt('userId');
+
+                setState(() {
+                  isUserLogged = (uid != null && uid > 0);
+                  loggedUserId = uid ?? 0;
+                });
+
+                // 🟢 LA SVOLTA: Invece di limitarti a cambiare indice,
+                // assicurati che il Navigator sappia che deve resettare la pagina
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MainScreen(isLogged: true),
+                  ),
+                );
+              }
             },
-                        child: Text("Accedi / Registrati", style: GoogleFonts.montserrat(color: Colors.white, fontWeight: FontWeight.bold)),
-          )
+            child: Text(
+              "Accedi / Registrati",
+              style: GoogleFonts.montserrat(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -176,25 +207,36 @@ class _BaseLayoutState extends State<BaseLayout> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(title: const Text(appTitle)),
-      extendBody: true, 
+      extendBody: true,
       body: _getPages()[_selectedIndex],
       bottomNavigationBar: SafeArea(
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), 
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), 
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(40),
-            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))],
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 10,
+                offset: Offset(0, 5),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildNavItem(Icons.home_filled,"Home", 0),
-              _buildNavItem(Icons.calendar_month,"Piani", 1),
-              _buildNavItem(Icons.playlist_add_check_outlined,"Lista", 2, size: 28),
-              _buildNavItem(Icons.kitchen,"Dispensa", 3),
-              _buildNavItem(Icons.person_outline,"Account", 4),
+              _buildNavItem(Icons.home_filled, "Home", 0),
+              _buildNavItem(Icons.calendar_month, "Piani", 1),
+              _buildNavItem(
+                Icons.playlist_add_check_outlined,
+                "Lista",
+                2,
+                size: 28,
+              ),
+              _buildNavItem(Icons.kitchen, "Dispensa", 3),
+              _buildNavItem(Icons.person_outline, "Account", 4),
             ],
           ),
         ),
@@ -202,7 +244,12 @@ class _BaseLayoutState extends State<BaseLayout> {
     );
   }
 
-  Widget _buildNavItem(IconData icon,String label, int index, {double size = 26}) {
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    int index, {
+    double size = 26,
+  }) {
     bool isSelected = _selectedIndex == index;
     return Expanded(
       child: GestureDetector(
@@ -251,11 +298,12 @@ class _BaseLayoutState extends State<BaseLayout> {
               if (hasLoggedIn == true) {
                 final prefs = await SharedPreferences.getInstance();
                 final int? uid = prefs.getInt('userId');
-                
+
                 setState(() {
                   isUserLogged = (uid != null);
-                  if (uid != null) loggedUserId = uid; // Aggiorna l'ID dopo il login
-                  _selectedIndex = 4; 
+                  if (uid != null)
+                    loggedUserId = uid; // Aggiorna l'ID dopo il login
+                  _selectedIndex = 4;
                 });
               }
             } else {
@@ -267,20 +315,20 @@ class _BaseLayoutState extends State<BaseLayout> {
           setState(() => _selectedIndex = index);
         },
         child: Column(
-          mainAxisSize: MainAxisSize.min, 
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              icon, 
-              size: size, 
-              color: isSelected ? primaryGreen : Colors.grey, 
+              icon,
+              size: size,
+              color: isSelected ? primaryGreen : Colors.grey,
             ),
-            const SizedBox(height: 4), 
-            Flexible( 
+            const SizedBox(height: 4),
+            Flexible(
               child: Text(
                 label,
                 style: GoogleFonts.montserrat(
-                  fontSize: 10, 
+                  fontSize: 10,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected ? primaryGreen : Colors.grey,
                 ),
