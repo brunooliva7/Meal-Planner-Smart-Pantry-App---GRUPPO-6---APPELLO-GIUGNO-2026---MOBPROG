@@ -297,13 +297,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 isEditingProfile ? _buildEditFormFields() : _buildProfileStatsCard(),
                 const SizedBox(height: 24),
 
-                _buildSectionTitle("I tuoi Preferiti ❤️"),
+                _buildSectionTitle("I tuoi Preferiti"),
                 _buildHorizontalRecipesList(favoriteRecipes, isFromApi: true),
 
-                _buildSectionTitle("Le mie Ricette 🍳"),
+                _buildSectionTitle("Le mie Ricette"),
                 _buildHorizontalRecipesList(myCreatedRecipes, isFromApi: false),
 
-                _buildSectionTitle("Ricette Salvate Offline 💾"),
+                _buildSectionTitle("Ricette Salvate Offline"),
                 _buildHorizontalRecipesList(savedOfflineRecipes, isFromApi: false),
                 
                 const SizedBox(height: 40),

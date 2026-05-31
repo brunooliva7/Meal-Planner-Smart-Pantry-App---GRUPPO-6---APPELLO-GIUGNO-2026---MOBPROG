@@ -16,7 +16,10 @@ class IngredientItem {
 }
 
 class CreateRecipeScreen extends StatefulWidget {
-  const CreateRecipeScreen({super.key});
+
+  final int userId; 
+
+  const CreateRecipeScreen({super.key, required this.userId});
 
   @override
   State<CreateRecipeScreen> createState() => _CreateRecipeScreenState();
@@ -78,25 +81,9 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
     });
   }
 
-  Future<void> _saveRecipe() async {
-    // 🟢 PATTERN: Validazione sicura del modulo tramite lo stato corrente della FormKey
-    if (!_formKey.currentState!.validate()) {
-      // Se un validatore fallisce, la funzione si interrompe e gli errori compaiono nell'interfaccia grafica
-      return;
-    }
+ Future<void> _saveRecipe() async {
+    if (!_formKey.currentState!.validate()) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final String? uidStr = prefs.getString('logged_in_uid');
-    
-    if (uidStr == null || uidStr.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Devi essere loggato per creare una ricetta!', style: GoogleFonts.montserrat()), backgroundColor: Colors.redAccent),
-      );
-      return;
-    }
-    int currentUserId = int.parse(uidStr);
-
-    // Costruiamo la lista degli ingredienti formattata accuratamente per il database
     List<Map<String, dynamic>> extIngredients = _ingredients.map((ing) {
       return {
         'name': ing.nameCtrl.text.trim(),
@@ -121,16 +108,13 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
       'personalNotes': '', 
     };
 
-    // Inserimento nei database SQLite locali strutturati coerentemente
-    await DatabaseHelper.instance.downloadRecipe(customRecipe, currentUserId);
-    await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath, currentUserId);
+    // 🟢 USIAMO L'ID PASSATO DIRETTAMENTE SENZA CONTROLLI
+    await DatabaseHelper.instance.downloadRecipe(customRecipe, widget.userId);
+    await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath, widget.userId);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Ricetta creata e aggiunta ai Preferiti!', style: GoogleFonts.montserrat()), 
-          backgroundColor: primaryGreen
-        ),
+        SnackBar(content: Text('Ricetta creata e aggiunta ai Preferiti!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
       );
       Navigator.pop(context); 
     }
