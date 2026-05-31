@@ -16,6 +16,7 @@ class EditMealPlanScreen extends StatefulWidget {
   final String initialPlannerName;
   final Map<String, List<String>> initialDayMealTypes;
   final Map<String, Map<String, List<RecipeModel>>> initialAssociatedRecipes;
+  final int userId; // 🟢 Riceve l'ID utente per allinearsi alle query del database
 
   const EditMealPlanScreen({
     super.key,
@@ -23,6 +24,7 @@ class EditMealPlanScreen extends StatefulWidget {
     required this.initialPlannerName,
     required this.initialDayMealTypes,
     required this.initialAssociatedRecipes,
+    this.userId = 0, // 🟢 Fallback a 0 per sicurezza
   });
 
   @override
@@ -99,7 +101,10 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
 
   void _showAddPiattoDialog(String mealType) async {
     List<Map<String, dynamic>> savedRecipesDB = [];
-    try { savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(); } catch (_) {}
+    try { 
+      // 🟢 ALLINEAMENTO DB: Passa il widget.userId richiesto dal nuovo schema
+      savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(widget.userId); 
+    } catch (_) {}
 
     if (!mounted) return;
     final TextEditingController piattoController = TextEditingController();
@@ -179,7 +184,6 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
     return Scaffold(
       backgroundColor: kBackgroundClear,
       appBar: AppBar(
-        // 🟢 PREVENZIONE OVERFLOW: Titolo compresso ed abbreviato se lo schermo è piccolo
         title: Text("Modifica Planner", style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.w700, color: kTextDark)),
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: primaryGreen, size: 20), onPressed: () => Navigator.pop(context, false)),
@@ -192,7 +196,6 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-                // 🟢 PREVENZIONE OVERFLOW: maxLines null e wrap di input text se il nome è chilometrico
                 child: TextField(
                   controller: _plannerNameController, 
                   maxLines: null,
@@ -234,7 +237,6 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                       children: [
                         ListTile(
                           leading: Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
-                          // 🟢 FISSA BUG INTERNO E PREVIENE OVERFLOW: Inserito dentro una Row reale nativa del ListTile per impedire crash strutturali
                           title: Row(
                             children: [
                               Expanded(
@@ -263,7 +265,6 @@ class _EditMealPlanScreenState extends State<EditMealPlanScreen> {
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            // 🟢 PREVENZIONE OVERFLOW: I piatti lunghi dentro il Wrap non spingono fuori la X di eliminazione
                                             Flexible(
                                               child: Text(
                                                 recipe.title, 

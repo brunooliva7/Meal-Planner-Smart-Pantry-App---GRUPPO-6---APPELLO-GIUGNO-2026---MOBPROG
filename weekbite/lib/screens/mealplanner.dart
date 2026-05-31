@@ -14,7 +14,9 @@ const Color kBorderColor = Color(0xFFF3F4F6);
 const Color kBackgroundClear = Color(0xFFF9F9FB); 
 
 class MealPlanScreen extends StatefulWidget {
-  const MealPlanScreen({super.key});
+  final int userId; // 🟢 ID utente per filtrare i planner personali
+
+  const MealPlanScreen({super.key, this.userId = 0}); // 🟢 Default a 0 per sicurezza
   @override
   State<MealPlanScreen> createState() => MealPlanScreenState();
 }
@@ -56,7 +58,8 @@ class MealPlanScreenState extends State<MealPlanScreen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final names = await DatabaseHelper.instance.getAllPlannerNames();
+      // 🟢 Passa widget.userId per caricare solo i suoi planner
+      final names = await DatabaseHelper.instance.getAllPlannerNames(widget.userId);
       
       if (names.isNotEmpty) {
         _allPlannerNames = names;
@@ -164,6 +167,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                       initialPlannerName: _selectedPlannerName!,
                       initialDayMealTypes: _dayMealTypes,
                       initialAssociatedRecipes: _associatedRecipes,
+                      userId: widget.userId, // 🟢 Passa l'ID utente alla modifica
                     ),
                   ),
                 );
@@ -175,14 +179,13 @@ class MealPlanScreenState extends State<MealPlanScreen> {
             ),
           ),
         ),
-        // 🟢 EVITIAMO OVERFLOW NELL'APPBAR: Sfruttiamo una Row con Expanded per scalare dinamicamente il dropdown
         title: Row(
           children: [
             Expanded(
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedPlannerName,
-                  isExpanded: true, // Occupa in sicurezza lo spazio orizzontale rimanente
+                  isExpanded: true, 
                   icon: const Icon(Icons.keyboard_arrow_down_rounded, color: primaryGreen),
                   style: GoogleFonts.montserrat(fontSize: 16, fontWeight: FontWeight.bold, color: kTextDark),
                   dropdownColor: Colors.white,
@@ -191,7 +194,7 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                       value: name,
                       child: Text(
                         name,
-                        overflow: TextOverflow.ellipsis, // Gestisce nomi planner lunghissimi troncandoli con i tre puntini
+                        overflow: TextOverflow.ellipsis, 
                       ),
                     );
                   }).toList(),
@@ -298,7 +301,6 @@ class MealPlanScreenState extends State<MealPlanScreen> {
                             child: ExpansionTile(
                               initiallyExpanded: true,
                               leading: Text(_mealEmojis[baseType] ?? "🍲", style: const TextStyle(fontSize: 22)),
-                              // 🟢 PREVENZIONE OVERFLOW TITOLO PASTO: Avvolto in Row ed Expanded per nomi custom lunghi
                               title: Row(
                                 children: [
                                   Expanded(
@@ -406,4 +408,4 @@ class MealPlanScreenState extends State<MealPlanScreen> {
       ),
     );
   }
-} 
+}

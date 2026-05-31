@@ -90,7 +90,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS planners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE
+        name TEXT NOT NULL,
+        user_id INTEGER,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     ''');
 
@@ -293,15 +295,17 @@ class DatabaseHelper {
   // ==========================================================
   // 📅 OPERAZIONI 4: MEAL PLANNER
   // ==========================================================
- Future<void> saveFullPlanner(
+  Future<void> saveFullPlanner(
     String name, 
     Map<String, List<String>> dayMealTypes, 
-    Map<String, Map<String, List<RecipeModel>>> associatedRecipes
+    Map<String, Map<String, List<RecipeModel>>> associatedRecipes,
+    int userId // 🟢 Aggiunto parametro
   ) async {
     final db = await instance.database;
 
     await db.transaction((txn) async {
-      int plannerId = await txn.insert('planners', {'name': name});
+      // 🟢 Inserisce l'user_id insieme al nome del planner
+      int plannerId = await txn.insert('planners', {'name': name, 'user_id': userId});
 
       for (var day in associatedRecipes.keys) {
         for (var mealType in associatedRecipes[day]!.keys) {
@@ -388,9 +392,10 @@ class DatabaseHelper {
     };
   }
  
-  Future<List<String>> getAllPlannerNames() async {
+ Future<List<String>> getAllPlannerNames(int userId) async { // 🟢 Aggiunto parametro
     final db = await instance.database;
-    final res = await db.query('planners');
+    // 🟢 Filtra i nomi dei planner in base all'utente loggato
+    final res = await db.query('planners', where: 'user_id = ?', whereArgs: [userId]);
     return res.map((row) => row['name'] as String).toList();
   }
 

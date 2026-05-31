@@ -12,7 +12,9 @@ const Color kBorderColor = Color(0xFFF3F4F6);
 const Color kBackgroundClear = Color(0xFFF9F9FB); 
 
 class CreateMealPlanScreen extends StatefulWidget {
-  const CreateMealPlanScreen({super.key});
+  final int userId; // 🟢 Riceve l'ID utente per allinearsi alle query del database
+
+  const CreateMealPlanScreen({super.key, this.userId = 0}); // 🟢 Fallback a 0 per sicurezza
   @override
   State<CreateMealPlanScreen> createState() => _CreateMealPlanScreenState();
 }
@@ -168,7 +170,8 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
   void _showAddPiatoDialog(String mealType) async {
     List<Map<String, dynamic>> savedRecipesDB = [];
     try {
-      savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(); 
+      // 🟢 ALLINEAMENTO DB: Passa il widget.userId richiesto dal nuovo schema
+      savedRecipesDB = await DatabaseHelper.instance.getAllFavorites(widget.userId); 
     } catch (_) {}
 
     if (!mounted) return;
@@ -277,7 +280,7 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     });
   }
 
-  Future<void> _savePlannerToDatabase() async {
+Future<void> _savePlannerToDatabase() async {
     String name = _plannerNameController.text.trim();
     if (name.isEmpty) {
       _showErrorDialog("Attenzione", "Devi inserire un nome per il tuo piano alimentare!");
@@ -285,13 +288,15 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
     }
 
     try {
-      List<String> existingNames = await DatabaseHelper.instance.getAllPlannerNames();
+      // 🟢 Modificato: Controlla i duplicati solo tra i planner del proprio utente
+      List<String> existingNames = await DatabaseHelper.instance.getAllPlannerNames(widget.userId);
       if (existingNames.any((n) => n.toLowerCase() == name.toLowerCase())) {
         _showErrorDialog("Nome Duplicato", "Esiste già un planner chiamato '$name'.");
         return;
       }
 
-      await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes);
+      // 🟢 Modificato: Passa widget.userId come ultimo parametro
+      await DatabaseHelper.instance.saveFullPlanner(name, _dayMealTypes, _associatedRecipes, widget.userId);
 
       if (!mounted) return;
       Navigator.pop(context, true); 
@@ -371,7 +376,6 @@ class _CreateMealPlanScreenState extends State<CreateMealPlanScreen> {
               const SizedBox(height: 14),
               Column(
                 children: pastiDelGiorno.map((mealType) {
-                  // 🟢 RIPRISTINATO IL TUO CODICE ORIGINALE PERFETTO: Tolto il bug del .id
                   final listRecipes = _associatedRecipes[_selectedDay]?[mealType] ?? [];
                   final baseType = mealType.split(' ')[0];
 
