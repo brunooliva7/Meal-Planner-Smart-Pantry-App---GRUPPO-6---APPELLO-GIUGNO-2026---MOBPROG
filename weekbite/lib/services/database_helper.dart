@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4, // 🟢 BUMP ALLA VERSIONE 4 PER FORZARE L'AGGIORNAMENTO
+      version: 6, 
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: _onConfigure, 

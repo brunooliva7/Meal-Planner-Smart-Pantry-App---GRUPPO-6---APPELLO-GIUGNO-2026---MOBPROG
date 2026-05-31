@@ -260,7 +260,7 @@ class _MainScreenState extends State<MainScreen> {
         children: [
           Expanded(
             child: InkWell(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(isLogged: widget.isLogged,userId: currentUserId!))),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SearchScreen(isLogged: widget.isLogged, userId: currentUserId ?? 0))),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -301,7 +301,7 @@ class _MainScreenState extends State<MainScreen> {
                 onPressed: () {
                   Navigator.push(
                     context, 
-                    MaterialPageRoute(builder: (_) => CreateRecipeScreen(userId: currentUserId!)) // 🟢 AGGIUNTO
+                    MaterialPageRoute(builder: (_) => CreateRecipeScreen(userId: currentUserId ?? 0)) 
                   ).then((_) {
                     _refreshAllData();
                   });

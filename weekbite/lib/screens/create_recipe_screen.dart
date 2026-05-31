@@ -108,15 +108,23 @@ class _CreateRecipeScreenState extends State<CreateRecipeScreen> {
       'personalNotes': '', 
     };
 
-    // 🟢 USIAMO L'ID PASSATO DIRETTAMENTE SENZA CONTROLLI
-    await DatabaseHelper.instance.downloadRecipe(customRecipe, widget.userId);
-    await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath, widget.userId);
+    // 🟢 AGGIUNTO: blocco try-catch per non far morire l'app se c'è un problema
+    try {
+      await DatabaseHelper.instance.downloadRecipe(customRecipe, widget.userId);
+      await DatabaseHelper.instance.addFavorite(customId, customRecipe['title'], imagePath, widget.userId);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ricetta creata e aggiunta ai Preferiti!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
-      );
-      Navigator.pop(context); 
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ricetta creata e aggiunta ai Preferiti!', style: GoogleFonts.montserrat()), backgroundColor: primaryGreen),
+        );
+        Navigator.pop(context); 
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Errore Database: $e', style: GoogleFonts.montserrat()), backgroundColor: Colors.redAccent),
+        );
+      }
     }
   }
 
