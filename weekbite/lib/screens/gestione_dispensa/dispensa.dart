@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:weekbite/main.dart';
-import 'package:weekbite/screens/ingredienti_model.dart';
+import 'package:weekbite/screens/gestione_dispensa/ingredienti_model.dart';
 import 'package:weekbite/services/database_helper.dart'; 
-import 'package:weekbite/screens/search_dispensa.dart'; 
+import 'package:weekbite/screens/gestione_dispensa/search_dispensa.dart'; 
 import 'package:weekbite/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -345,6 +345,7 @@ class IngredientiCard extends StatelessWidget {
     );
   }
 }
+
 /*
 class ListaIngredientiScreen extends StatefulWidget{
   const ListaIngredientiScreen({super.key});
@@ -453,6 +454,7 @@ class _ListaIngredientiScreen extends State<ListaIngredientiScreen>{
   }
 }
 */
+
 class FormIngredientiScreen extends StatefulWidget{
   final Ingredienti? ingredienteEsistente; 
 
