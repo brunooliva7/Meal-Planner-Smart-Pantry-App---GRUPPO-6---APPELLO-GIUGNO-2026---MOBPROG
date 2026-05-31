@@ -45,21 +45,32 @@ class _SearchDispensaScreenState extends State<SearchDispensaScreen> {
       isLoading = true;
     });
     String queryTesto = _searchController.text.trim();
+    int userId = widget.currentUserId!;
 
     try {
       final db = await DatabaseHelper.instance.database;
       List<Map<String, dynamic>> res;
       if (queryTesto.isEmpty && selectedCategoria == 'Tutte le categorie') {
-        res = await db.query('dispensa'); 
+        res = await db.query(
+          'dispensa',
+          where: 'fk_utente = ?',
+          whereArgs: [userId],
+        ); 
       } else if (queryTesto.isEmpty && selectedCategoria != 'Tutte le categorie') {
-        res = await db.query('dispensa', where: 'categoria = ?', whereArgs: [selectedCategoria]);
+        res = await db.query(
+          'dispensa',
+          where: 'categoria = ? AND fk_utente = ?',
+          whereArgs: [selectedCategoria, userId]);
       } else if (queryTesto.isNotEmpty && selectedCategoria == 'Tutte le categorie') {
-        res = await db.query('dispensa', where: 'nome LIKE ?', whereArgs: ['%$queryTesto%']);
+        res = await db.query(
+          'dispensa', 
+          where: 'nome LIKE ? AND fk_utente = ?',
+           whereArgs: ['%$queryTesto%', userId]);
       } else {
         res = await db.query(
           'dispensa', 
-          where: 'nome LIKE ? AND categoria = ?', 
-          whereArgs: ['%$queryTesto%', selectedCategoria]
+          where: 'nome LIKE ? AND categoria = ? AND fk_utente = ?', 
+          whereArgs: ['%$queryTesto%', selectedCategoria, userId]
         );
       }
 
